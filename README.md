@@ -1,3 +1,6 @@
+# DRAFT ONLY : UNTIL KEP IS MERGED 
+  https://github.com/kubernetes/enhancements/pull/1383
+
 # Container Object Storage Interface CSI Adapter
 
 CSI driver to bootstrap COSI workloads
