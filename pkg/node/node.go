@@ -5,19 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/utils/mount"
 	"os"
 	"path/filepath"
 
 	"github.com/container-object-storage-interface/api/apis/objectstorage.k8s.io/v1alpha1"
 	cs "github.com/container-object-storage-interface/api/clientset/typed/objectstorage.k8s.io/v1alpha1"
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"k8s.io/utils/mount"
 )
 
 var _ csi.NodeServer = &NodeServer{}
@@ -92,13 +92,12 @@ func (n NodeServer) getB(bName string)  (*v1alpha1.Bucket, error) {
 }
 
 func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	klog.Infof("NodePublishVolume: volId: %v, targetPath: %v\n", request.GetVolumeId(), request.StagingTargetPath)
+	klog.Infof("NodeStageVolume: volId: %v, targetPath: %v\n", request.GetVolumeId(), request.StagingTargetPath)
 
 	name, ns, err := parseVolumeContext(request.VolumeContext)
 	if err != nil {
 		return nil, err
 	}
-
 
 	pod, err := n.kubeClient.CoreV1().Pods(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
@@ -106,6 +105,7 @@ func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageV
 	}
 
 	barName, barNs, err := parsePod(pod, n.name)
+
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +121,7 @@ func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageV
 	if err != nil {
 		return nil, err
 	}
+
 	bkt, err := n.getB(br.Spec.BucketInstanceName)
 	if err != nil {
 		return nil, err
@@ -138,7 +139,7 @@ func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageV
 	case v1alpha1.ProtocolNameGCS:
 		protocolConnection = bkt.Spec.Protocol.GCS
 	case "":
-		err = fmt.Errorf("bucket %q protocol not signature")
+		err = fmt.Errorf("bucket protocol not signature")
 	default:
 		err = fmt.Errorf("unrecognized protocol %q, unable to extract connection data", bkt.Spec.Protocol)
 	}
@@ -242,7 +243,7 @@ func (n NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePubl
 	}
 
 	if err := mount.New("").Mount(stagingTargetPath, targetPath, "", []string{"bind"}); err != nil {
-		return nil, status.Errorf(codes.Internal, "Stage Volume Mount Failed: %v", err)
+		return nil, status.Errorf(codes.Internal, "Publish Volume Mount Failed: %v", err)
 	}
 
 	return &csi.NodePublishVolumeResponse{}, nil
