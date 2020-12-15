@@ -28,12 +28,14 @@ require (
 	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/genproto v0.0.0-20201002142447-3860012362da // indirect
-	google.golang.org/grpc v1.32.0 // indirect
+	google.golang.org/grpc v1.32.0
 	gopkg.in/ini.v1 v1.61.0 // indirect
+	k8s.io/api v0.19.2
+	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v0.19.2
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.3.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20200923155610-8b5066479488 // indirect
-	k8s.io/utils v0.0.0-20200912215256-4140de9c8800 // indirect
+	k8s.io/utils v0.0.0-20200912215256-4140de9c8800
 	sigs.k8s.io/controller-runtime v0.6.3 // indirect
 )
