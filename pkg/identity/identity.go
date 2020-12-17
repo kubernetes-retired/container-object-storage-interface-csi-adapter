@@ -18,6 +18,8 @@ package identity
 
 import (
 	"context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 )
@@ -37,7 +39,18 @@ type IdentityServer struct {
 }
 
 func (i *IdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
-	return &csi.GetPluginInfoResponse{}, nil
+	if i.Identity == "" {
+		return nil, status.Error(codes.Unavailable, "Driver name not configured")
+	}
+
+	if i.Version == "" {
+		return nil, status.Error(codes.Unavailable, "Driver is missing version")
+	}
+
+	return &csi.GetPluginInfoResponse{
+		Name:          i.Identity,
+		VendorVersion: i.Version,
+	}, nil
 }
 
 func (i *IdentityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
