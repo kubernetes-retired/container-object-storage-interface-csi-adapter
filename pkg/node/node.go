@@ -21,7 +21,9 @@ import (
 )
 
 var _ csi.NodeServer = &NodeServer{}
+
 const protocolFileName string = `protocolConn.json`
+
 var getError = func(t, n string, e error) error { return fmt.Errorf("failed to get <%s>%s: %v", t, n, e) }
 
 func NewNodeServer(driverName, nodeID string, c cs.ObjectstorageV1alpha1Client, kube kubernetes.Interface) csi.NodeServer {
@@ -51,7 +53,7 @@ type NodeServer struct {
 	ctx        context.Context
 }
 
-func (n NodeServer) getBAR(barName, barNs string) (*v1alpha1.BucketAccessRequest, error)  {
+func (n NodeServer) getBAR(barName, barNs string) (*v1alpha1.BucketAccessRequest, error) {
 	klog.Infof("getting bucketAccessRequest %q", fmt.Sprintf("%s/%s", barNs, barName))
 	bar, err := n.cosiClient.BucketAccessRequests(barNs).Get(n.ctx, barName, metav1.GetOptions{})
 	if err != nil || bar == nil || !bar.Status.AccessGranted {
@@ -63,7 +65,7 @@ func (n NodeServer) getBAR(barName, barNs string) (*v1alpha1.BucketAccessRequest
 	return bar, nil
 }
 
-func (n NodeServer) getBA(baName string) (*v1alpha1.BucketAccess, error)  {
+func (n NodeServer) getBA(baName string) (*v1alpha1.BucketAccess, error) {
 	klog.Infof("getting bucketAccess %q", fmt.Sprintf("%s", baName))
 	ba, err := n.cosiClient.BucketAccesses().Get(n.ctx, baName, metav1.GetOptions{})
 	if err != nil || ba == nil || !ba.Status.AccessGranted {
@@ -72,7 +74,7 @@ func (n NodeServer) getBA(baName string) (*v1alpha1.BucketAccess, error)  {
 	return ba, nil
 }
 
-func (n NodeServer) getBR(brName, brNs string) (*v1alpha1.BucketRequest, error)  {
+func (n NodeServer) getBR(brName, brNs string) (*v1alpha1.BucketRequest, error) {
 	klog.Infof("getting bucketRequest %q", brName)
 	br, err := n.cosiClient.BucketRequests(brNs).Get(n.ctx, brName, metav1.GetOptions{})
 	if err != nil || br == nil || !br.Status.BucketAvailable {
@@ -81,7 +83,7 @@ func (n NodeServer) getBR(brName, brNs string) (*v1alpha1.BucketRequest, error) 
 	return br, nil
 }
 
-func (n NodeServer) getB(bName string)  (*v1alpha1.Bucket, error) {
+func (n NodeServer) getB(bName string) (*v1alpha1.Bucket, error) {
 	klog.Infof("getting bucket %q", bName)
 	// is BucketInstanceName the correct field, or should it be BucketClass
 	bkt, err := n.cosiClient.Buckets().Get(n.ctx, bName, metav1.GetOptions{})
@@ -141,13 +143,13 @@ func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageV
 	case "":
 		err = fmt.Errorf("bucket protocol not signature")
 	default:
-		err = fmt.Errorf("unrecognized protocol %q, unable to extract connection data", bkt.Spec.Protocol)
+		err = fmt.Errorf("unrecognized protocol %q, unable to extract connection data", bkt.Spec.Protocol.ProtocolName)
 	}
 
 	if err != nil {
 		return nil, logErr(err)
 	}
-	klog.Infof("bucket %q has protocol %q", bkt.Name, bkt.Spec.Protocol)
+	klog.Infof("bucket %q has protocol %q", bkt.Name, bkt.Spec.Protocol.ProtocolName)
 
 	data := make(map[string]interface{})
 	data["protocol"] = protocolConnection
@@ -178,7 +180,6 @@ const (
 	barNameKey      = "bar-name"
 	barNamespaceKey = "bar-namespace"
 )
-
 
 func parseValue(key string, ctx map[string]string) (string, error) {
 	value, ok := ctx[key]
