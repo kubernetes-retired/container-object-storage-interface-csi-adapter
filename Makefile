@@ -13,15 +13,15 @@
 # limitations under the License.
 
 all: reltools build
-
 .PHONY: reltools
-reltools: ./release-tools/build.make
-./release-tools/build.make:
+reltools: release-tools/build.make
+release-tools/build.make:
 	$(eval CURDIR := $(shell pwd))
 	$(eval TMP := $(shell mktemp -d))
-	$(shell cd ${TMP} && git clone git@github.com:container-object-storage-interface/api.git)
-	$(shell cp -r ${TMP}/api/release-tools ${CURDIR}/)
-	$(shell rm -rf ${TMP})            
+	$(shell cd ${TMP} && git clone https://github.com/kubernetes-sigs/container-object-storage-interface-spec)
+	$(shell cp -r ${TMP}/container-object-storage-interface-spec/release-tools ${CURDIR}/)
+	$(shell rm -rf ${TMP})
+	ln -s release-tools/travis.yml travis.yml
 
 CMDS=csi-adapter
 

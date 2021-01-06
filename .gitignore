@@ -1,3 +1,9 @@
 .idea
 vendor
 bin/csi-adapter
+release-tools
+.DS_Store
+*.tmp
+.build
+*.swp
+travis.yml
