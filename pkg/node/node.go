@@ -52,7 +52,7 @@ type NodeServer struct {
 }
 
 func (n NodeServer) getBAR(barName, barNs string) (*v1alpha1.BucketAccessRequest, error)  {
-	klog.Infof("getting bucketAccessRequest %q", fmt.Sprintf("%s/%s", barNs, barName))
+	klog.Infof("getting bucketAccessRequest %s", fmt.Sprintf("%s/%s", barNs, barName))
 	bar, err := n.cosiClient.BucketAccessRequests(barNs).Get(n.ctx, barName, metav1.GetOptions{})
 	if err != nil || bar == nil || !bar.Status.AccessGranted {
 		return nil, logErr(getError("bucketAccessRequest", fmt.Sprintf("%s/%s", barNs, barName), err))
@@ -64,7 +64,7 @@ func (n NodeServer) getBAR(barName, barNs string) (*v1alpha1.BucketAccessRequest
 }
 
 func (n NodeServer) getBA(baName string) (*v1alpha1.BucketAccess, error)  {
-	klog.Infof("getting bucketAccess %q", fmt.Sprintf("%s", baName))
+	klog.Infof("getting bucketAccess %s", fmt.Sprintf("%s", baName))
 	ba, err := n.cosiClient.BucketAccesses().Get(n.ctx, baName, metav1.GetOptions{})
 	if err != nil || ba == nil || !ba.Status.AccessGranted {
 		return nil, logErr(getError("bucketAccess", fmt.Sprintf("%s", baName), err))
@@ -73,7 +73,7 @@ func (n NodeServer) getBA(baName string) (*v1alpha1.BucketAccess, error)  {
 }
 
 func (n NodeServer) getBR(brName, brNs string) (*v1alpha1.BucketRequest, error)  {
-	klog.Infof("getting bucketRequest %q", brName)
+	klog.Infof("getting bucketRequest %s", brName)
 	br, err := n.cosiClient.BucketRequests(brNs).Get(n.ctx, brName, metav1.GetOptions{})
 	if err != nil || br == nil || !br.Status.BucketAvailable {
 		return nil, logErr(getError("bucketRequest", fmt.Sprintf("%s/%s", brNs, brName), err))
@@ -82,7 +82,7 @@ func (n NodeServer) getBR(brName, brNs string) (*v1alpha1.BucketRequest, error) 
 }
 
 func (n NodeServer) getB(bName string)  (*v1alpha1.Bucket, error) {
-	klog.Infof("getting bucket %q", bName)
+	klog.Infof("getting bucket %s", bName)
 	// is BucketInstanceName the correct field, or should it be BucketClass
 	bkt, err := n.cosiClient.Buckets().Get(n.ctx, bName, metav1.GetOptions{})
 	if err != nil || bkt == nil || !bkt.Status.BucketAvailable {
@@ -141,13 +141,13 @@ func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageV
 	case "":
 		err = fmt.Errorf("bucket protocol not signature")
 	default:
-		err = fmt.Errorf("unrecognized protocol %q, unable to extract connection data", bkt.Spec.Protocol)
+		err = fmt.Errorf("unrecognized protocol %s, unable to extract connection data", bkt.Spec.Protocol.ProtocolName)
 	}
 
 	if err != nil {
 		return nil, logErr(err)
 	}
-	klog.Infof("bucket %q has protocol %q", bkt.Name, bkt.Spec.Protocol)
+	klog.Infof("bucket %s has protocol %s", bkt.Name, bkt.Spec.Protocol.ProtocolName)
 
 	data := make(map[string]interface{})
 	data["protocol"] = protocolConnection
