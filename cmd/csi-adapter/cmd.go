@@ -36,9 +36,9 @@ var (
 )
 
 var driverCmd = &cobra.Command{
-	Use:   os.Args[0],
-	Short: "Ephemeral CSI driver for use in the COSI",
-	Long: "This Container Storage Interface (CSI) driver provides the ability to reference Bucket and BucketAccess objects, extracting connection/credential information and writing it to the Pod's filesystem. This driver does not manage the lifecycle of the bucket or the backing of the objects themselves, it only acts as the middle-man.",
+	Use:          os.Args[0],
+	Short:        "Ephemeral CSI driver for use in the COSI",
+	Long:         "This Container Storage Interface (CSI) driver provides the ability to reference Bucket and BucketAccess objects, extracting connection/credential information and writing it to the Pod's filesystem. This driver does not manage the lifecycle of the bucket or the backing of the objects themselves, it only acts as the middle-man.",
 	SilenceUsage: true,
 	RunE: func(c *cobra.Command, args []string) error {
 		return driver(args)
