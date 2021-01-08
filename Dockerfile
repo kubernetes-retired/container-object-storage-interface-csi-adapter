@@ -11,7 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 FROM gcr.io/distroless/static:latest
-WORKDIR /
+LABEL maintainers="Kubernetes Authors"
+LABEL description="COSI CSI Adapter"
+
 COPY ./bin/csi-adapter csi-adapter
 ENTRYPOINT ["/csi-adapter"]

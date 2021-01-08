@@ -1,0 +1,10 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: objectstorage-csi-adapter-sa
+  labels:
+    app.kubernetes.io/part-of: container-object-storage-interface
+    app.kubernetes.io/component: csi-adapter
+    app.kubernetes.io/version: main
+    app.kubernetes.io/name: container-object-storage-interface-csi-adapter
