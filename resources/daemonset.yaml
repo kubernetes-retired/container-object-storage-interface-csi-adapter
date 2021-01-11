@@ -1,0 +1,153 @@
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: cosi.storage.k8s.io
+spec:
+  volumeLifecycleModes:
+  - Ephemeral
+  podInfoOnMount: true
+  attachRequired: false
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cosi.storage.k8s.io
+data:
+  key: none
+
+---
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: cosi.storage.k8s.io
+provisioner: cosi.storage.k8s.io
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+parameters:
+  disable.csi.storage.k8s.io/provisioner-secret-name: cosi.storage.k8s.io
+  disable.csi.storage.k8s.io/provisioner-secret-namespace: default
+  disable.csi.storage.k8s.io/fstype: xfs
+  fstype: xfs
+
+---
+
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: objectstorage-csi-adapter
+  labels:
+    app.kubernetes.io/part-of: container-object-storage-interface
+    app.kubernetes.io/component: csi-adapter
+    app.kubernetes.io/version: main
+    app.kubernetes.io/name: container-object-storage-interface-csi-adapter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: container-object-storage-interface
+      app.kubernetes.io/component: csi-adapter
+      app.kubernetes.io/name: container-object-storage-interface-csi-adapter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/part-of: container-object-storage-interface
+        app.kubernetes.io/component: csi-adapter
+        app.kubernetes.io/version: main
+        app.kubernetes.io/name: container-object-storage-interface-csi-adapter
+    spec:
+      serviceAccountName: objectstorage-csi-adapter-sa
+      volumes:
+        - hostPath:
+            path: /var/lib/kubelet/plugins/cosi.storage.k8s.io
+            type: DirectoryOrCreate
+          name: socket-dir
+        - hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins_registry
+            type: Directory
+          name: registration-dir
+        - hostPath:
+            path: /var/lib/kubelet/plugins
+            type: Directory
+          name: plugins-dir
+      containers:
+        - name: node-driver-registrar
+          image: quay.io/k8scsi/csi-node-driver-registrar:v1.3.0
+          args:
+            - "--v=5"
+            - "--csi-address=/csi/csi.sock"
+            - "--kubelet-registration-path=/var/lib/kubelet/plugins/cosi.storage.k8s.io/csi.sock"
+          securityContext:
+            # This is necessary only for systems with SELinux, where
+            # non-privileged sidecar containers cannot access unix domain socket
+            # created by privileged CSI driver container.
+            privileged: true
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          volumeMounts:
+          - mountPath: /csi
+            name: socket-dir
+          - mountPath: /registration
+            name: registration-dir
+          terminationMessagePolicy: FallbackToLogsOnError
+          terminationMessagePath: /var/logs/driver-registrar-termination-log
+        - name: objectstorage-csi-adapter
+          image: quay.io/containerobjectstorage/objectstorage-csi-adapter:latest
+          args:
+            - "--v=5"
+            - "--identity=cosi.storage.k8s.io"
+            - "--listen=$(CSI_ENDPOINT)"
+            - "--protocol=$(CSI_PROTO)"
+            - "--node-id=$(KUBE_NODE_NAME)"
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: CSI_PROTO
+              value: unix
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          imagePullPolicy: Always
+          terminationMessagePolicy: FallbackToLogsOnError
+          terminationMessagePath: /var/log/driver-termination-log
+          ports:
+            - containerPort: 9898
+              name: healthz
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 2
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /var/lib/kubelet/pods
+              name: mountpoint-dir
+            - mountPath: /var/lib/kubelet/plugins
+              name: plugins-dir
+        - name: liveness-probe
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+          image: quay.io/k8scsi/livenessprobe:v1.1.0
+          args:
+            - --csi-address=/csi/csi.sock
+            - --health-port=9898
+          terminationMessagePolicy: FallbackToLogsOnError
+          terminationMessagePath: /var/log/driver-liveness-termination-log
