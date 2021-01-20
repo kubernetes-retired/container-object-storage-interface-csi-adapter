@@ -3,13 +3,11 @@ package node
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
 
-	"github.com/container-object-storage-interface/api/apis/objectstorage.k8s.io/v1alpha1"
-	cs "github.com/container-object-storage-interface/api/clientset/typed/objectstorage.k8s.io/v1alpha1"
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -18,11 +16,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"k8s.io/utils/mount"
+
+	"github.com/kubernetes-sigs/container-object-storage-interface-api/apis/objectstorage.k8s.io/v1alpha1"
+	cs "github.com/kubernetes-sigs/container-object-storage-interface-api/clientset/typed/objectstorage.k8s.io/v1alpha1"
 )
 
 var _ csi.NodeServer = &NodeServer{}
 
 const protocolFileName string = `protocolConn.json`
+const credsFileName string = `credentials`
+const fileExistsError string = "File %s already exists"
 
 var getError = func(t, n string, e error) error { return fmt.Errorf("failed to get <%s>%s: %v", t, n, e) }
 
@@ -133,7 +136,7 @@ func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageV
 		return nil, logErr(getError("pod", fmt.Sprintf("%s/%s", barNs, ba.Spec.MintedSecretName), err))
 	}
 	var protocolConnection interface{}
-	switch bkt.Spec.Protocol.ProtocolName {
+	switch bkt.Spec.Protocol.Name {
 	case v1alpha1.ProtocolNameS3:
 		protocolConnection = bkt.Spec.Protocol.S3
 	case v1alpha1.ProtocolNameAzure:
@@ -143,35 +146,73 @@ func (n NodeServer) NodeStageVolume(ctx context.Context, request *csi.NodeStageV
 	case "":
 		err = fmt.Errorf("bucket protocol not signature")
 	default:
-		err = fmt.Errorf("unrecognized protocol %q, unable to extract connection data", bkt.Spec.Protocol.ProtocolName)
+		err = fmt.Errorf("unrecognized protocol %q, unable to extract connection data", bkt.Spec.Protocol.Name)
 	}
 
 	if err != nil {
 		return nil, logErr(err)
 	}
-	klog.Infof("bucket %q has protocol %q", bkt.Name, bkt.Spec.Protocol.ProtocolName)
 
-	data := make(map[string]interface{})
-	data["protocol"] = protocolConnection
-	data["connection"] = secret.Data
+	klog.Infof("bucket %q has protocol %q", bkt.Name, bkt.Spec.Protocol.Name)
 
-	protoData, err := json.Marshal(data)
+	// Write the bucket.json file with the protocolConnection to pod
+
+	protoData, err := json.Marshal(protocolConnection)
 	if err != nil {
 		return nil, logErr(fmt.Errorf("error marshalling protocol: %v", err))
 	}
 
-	target := filepath.Join(request.StagingTargetPath, protocolFileName)
-	klog.Infof("creating conn file: %s", target)
-	f, err := os.Open(target)
-	if err != nil {
-		return nil, logErr(fmt.Errorf("error creating file: %s: %v", target, err))
+	if err := writeFile(protoData, filepath.Join(request.StagingTargetPath, protocolFileName)); err != nil {
+		return nil, err
 	}
-	defer f.Close()
-	_, err = f.Write(protoData)
+
+	// Writing credentials from secret to pod
+
+	credsData, err := json.Marshal(secret.StringData)
 	if err != nil {
-		return nil, logErr(fmt.Errorf("unable to write to file: %v", err))
+		return nil, logErr(fmt.Errorf("error marshalling credentials: %v", err))
 	}
+
+	if err := writeFile(credsData, filepath.Join(request.StagingTargetPath, credsFileName)); err != nil {
+		return nil, err
+	}
+
 	return &csi.NodeStageVolumeResponse{}, nil
+}
+
+// fileExists returns whether the given file or directory exists
+func fileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func writeFile(data []byte, filepath string) error {
+	klog.Infof("creating conn file: %s", filepath)
+
+	if exists, err := fileExists(filepath); exists || err != nil {
+		if err != nil {
+			return errors.Wrap(err, fileExistsError)
+		}
+		return errors.New(fileExistsError)
+	}
+
+	File, err := os.Open(filepath)
+	if err != nil {
+		return logErr(fmt.Errorf("error creating file: %s: %v", filepath, err))
+	}
+	defer File.Close()
+	_, err = File.Write(data)
+	if err != nil {
+		return logErr(fmt.Errorf("unable to write to file: %v", err))
+	}
+
+	return nil
 }
 
 const (

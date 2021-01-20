@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 
-	cs "github.com/container-object-storage-interface/api/clientset/typed/objectstorage.k8s.io/v1alpha1"
+	cs "github.com/kubernetes-sigs/container-object-storage-interface-api/clientset/typed/objectstorage.k8s.io/v1alpha1"
 
 	"github.com/kubernetes-sigs/container-object-storage-interface-csi-adapter/pkg/controller"
 	id "github.com/kubernetes-sigs/container-object-storage-interface-csi-adapter/pkg/identity"
