@@ -26,3 +26,6 @@ release-tools/build.make:
 CMDS=csi-adapter
 
 include release-tools/build.make
+
+IMAGE_NAME=quay.io/containerobjectstorage/objectstorage-csi-adapter
+IMAGE_TAGS=canary

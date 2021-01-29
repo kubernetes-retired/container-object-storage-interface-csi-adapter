@@ -1,88 +1,81 @@
 apiVersion: storage.k8s.io/v1
 kind: CSIDriver
 metadata:
-  name: cosi.storage.k8s.io
+  name: objectstorage.k8s.io
 spec:
   volumeLifecycleModes:
   - Ephemeral
   podInfoOnMount: true
   attachRequired: false
-
 ---
-
 apiVersion: v1
 kind: Secret
 metadata:
-  name: cosi.storage.k8s.io
+  name: objectstorage.k8s.io
 data:
   key: none
-
 ---
-
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: cosi.storage.k8s.io
-provisioner: cosi.storage.k8s.io
-reclaimPolicy: Retain
-volumeBindingMode: WaitForFirstConsumer
+  name: objectstorage.k8s.io
+provisioner: objectstorage.k8s.io
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
 parameters:
-  disable.csi.storage.k8s.io/provisioner-secret-name: cosi.storage.k8s.io
+  disable.csi.storage.k8s.io/provisioner-secret-name: objectstorage.k8s.io
   disable.csi.storage.k8s.io/provisioner-secret-namespace: default
   disable.csi.storage.k8s.io/fstype: xfs
   fstype: xfs
-
----
-
 ---
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: objectstorage-csi-adapter
   labels:
-    app.kubernetes.io/part-of: container-object-storage-interface
-    app.kubernetes.io/component: csi-adapter
+    app.kubernetes.io/part-of: cosi
     app.kubernetes.io/version: main
-    app.kubernetes.io/name: container-object-storage-interface-csi-adapter
+    app.kubernetes.io/component: csi-adapter
+    app.kubernetes.io/name: objectstorage-csi-adapter
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/part-of: container-object-storage-interface
+      app.kubernetes.io/part-of: cosi
       app.kubernetes.io/component: csi-adapter
-      app.kubernetes.io/name: container-object-storage-interface-csi-adapter
+      app.kubernetes.io/name: objectstorage-csi-adapter
   template:
     metadata:
       labels:
-        app.kubernetes.io/part-of: container-object-storage-interface
-        app.kubernetes.io/component: csi-adapter
+        app.kubernetes.io/part-of: cosi
         app.kubernetes.io/version: main
-        app.kubernetes.io/name: container-object-storage-interface-csi-adapter
+        app.kubernetes.io/component: csi-adapter
+        app.kubernetes.io/name: objectstorage-csi-adapter
     spec:
       serviceAccountName: objectstorage-csi-adapter-sa
       volumes:
         - hostPath:
-            path: /var/lib/kubelet/plugins/cosi.storage.k8s.io
+            path: /var/lib/kubelet/plugins/objectstorage.k8s.io
             type: DirectoryOrCreate
           name: socket-dir
-        - hostPath:
-            path: /var/lib/kubelet/pods
-            type: DirectoryOrCreate
-          name: mountpoint-dir
         - hostPath:
             path: /var/lib/kubelet/plugins_registry
             type: Directory
           name: registration-dir
         - hostPath:
-            path: /var/lib/kubelet/plugins
-            type: Directory
-          name: plugins-dir
+            path: /var/lib/cosi-data/
+            type: DirectoryOrCreate
+          name: cosi-data-dir
+        - name: mountpoint-dir
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
       containers:
         - name: node-driver-registrar
-          image: quay.io/k8scsi/csi-node-driver-registrar:v1.3.0
+          image: k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.0.1
           args:
             - "--v=5"
             - "--csi-address=/csi/csi.sock"
-            - "--kubelet-registration-path=/var/lib/kubelet/plugins/cosi.storage.k8s.io/csi.sock"
+            - "--kubelet-registration-path=/var/lib/kubelet/plugins/objectstorage.k8s.io/csi.sock"
           securityContext:
             # This is necessary only for systems with SELinux, where
             # non-privileged sidecar containers cannot access unix domain socket
@@ -102,13 +95,15 @@ spec:
           terminationMessagePolicy: FallbackToLogsOnError
           terminationMessagePath: /var/logs/driver-registrar-termination-log
         - name: objectstorage-csi-adapter
-          image: quay.io/containerobjectstorage/objectstorage-csi-adapter:latest
+          image: quay.io/containerobjectstorage/objectstorage-csi-adapter:canary
           args:
             - "--v=5"
-            - "--identity=cosi.storage.k8s.io"
+            - "--identity=objectstorage.k8s.io"
             - "--listen=$(CSI_ENDPOINT)"
             - "--protocol=$(CSI_PROTO)"
             - "--node-id=$(KUBE_NODE_NAME)"
+            - "--data-path=$(DATA_PATH)"
+            - "--max-volumes=$(MAX_VOLUMES)"
           env:
             - name: CSI_ENDPOINT
               value: unix:///csi/csi.sock
@@ -119,7 +114,16 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
+            - name: DATA_PATH
+              value: /cosi-secret-dir
+            - name: MAX_VOLUMES
+              value: "100"
           imagePullPolicy: Always
+          securityContext:
+            # This is necessary only for systems with SELinux, where
+            # non-privileged sidecar containers cannot access unix domain socket
+            # created by privileged CSI driver container.
+            privileged: true
           terminationMessagePolicy: FallbackToLogsOnError
           terminationMessagePath: /var/log/driver-termination-log
           ports:
@@ -137,15 +141,17 @@ spec:
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-            - mountPath: /var/lib/kubelet/pods
-              name: mountpoint-dir
-            - mountPath: /var/lib/kubelet/plugins
-              name: plugins-dir
+            - mountPath: /cosi-secret-dir
+              name: cosi-data-dir
+              mountPropagation: Bidirectional
+            - name: mountpoint-dir
+              mountPath: /var/lib/kubelet/pods
+              mountPropagation: Bidirectional
         - name: liveness-probe
           volumeMounts:
             - mountPath: /csi
               name: socket-dir
-          image: quay.io/k8scsi/livenessprobe:v1.1.0
+          image: k8s.gcr.io/sig-storage/livenessprobe:v2.2.0
           args:
             - --csi-address=/csi/csi.sock
             - --health-port=9898

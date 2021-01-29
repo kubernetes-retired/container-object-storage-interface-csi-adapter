@@ -4,7 +4,7 @@ kind: ServiceAccount
 metadata:
   name: objectstorage-csi-adapter-sa
   labels:
-    app.kubernetes.io/part-of: container-object-storage-interface
-    app.kubernetes.io/component: csi-adapter
+    app.kubernetes.io/part-of: cosi
     app.kubernetes.io/version: main
-    app.kubernetes.io/name: container-object-storage-interface-csi-adapter
+    app.kubernetes.io/component: csi-adapter
+    app.kubernetes.io/name: objectstorage-csi-adapter
