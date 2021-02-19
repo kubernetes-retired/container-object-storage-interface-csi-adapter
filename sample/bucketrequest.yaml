@@ -1,0 +1,14 @@
+#
+# Note, this resource would typically be created by the end user to
+# create or gain access to an existing bucket
+#
+kind: BucketRequest
+apiVersion: objectstorage.k8s.io/v1alpha1
+metadata:
+  name: sample-br
+spec:
+  bucketClassName: sample-bc
+  bucketInstanceName: sample-b
+  bucketPrefix: test
+status:
+  bucketAvailable: true

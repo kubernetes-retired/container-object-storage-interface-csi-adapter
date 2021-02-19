@@ -1,0 +1,17 @@
+#
+# Note, this resource would typically be created by the kubeadmin and
+# not the end user
+#
+kind: BucketClass
+apiVersion: objectstorage.k8s.io/v1alpha1
+metadata:
+  name: sample-bc
+protocol:
+  name: s3
+  s3:
+    bucketName: sampleBucket
+    endpoint: sampleBucket.com
+    region: us-east-1
+    signatureVersion: s3v4
+  version: v1alpha1
+provisioner: sample

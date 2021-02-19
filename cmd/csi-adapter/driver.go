@@ -21,11 +21,7 @@ import (
 
 	"github.com/golang/glog"
 	csicommon "github.com/kubernetes-csi/drivers/pkg/csi-common"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-
-	cs "github.com/kubernetes-sigs/container-object-storage-interface-api/clientset/typed/objectstorage.k8s.io/v1alpha1"
 
 	"github.com/kubernetes-sigs/container-object-storage-interface-csi-adapter/pkg/controller"
 	id "github.com/kubernetes-sigs/container-object-storage-interface-csi-adapter/pkg/identity"
@@ -46,12 +42,7 @@ func driver(args []string) error {
 	}
 	glog.V(5).Infof("identity server prepared")
 
-	config := &rest.Config{}
-
-	client := cs.NewForConfigOrDie(config)
-	kube := kubernetes.NewForConfigOrDie(config)
-
-	nodeServer := node.NewNodeServer(identity, nodeID, *client, kube)
+	nodeServer := node.NewNodeServerOrDie(identity, nodeID, dataRoot, volumeLimit)
 	controllerServer, err := controller.NewControllerServer()
 
 	s := csicommon.NewNonBlockingGRPCServer()

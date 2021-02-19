@@ -10,12 +10,11 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/kubernetes-csi/csi-lib-utils v0.8.1 // indirect
 	github.com/kubernetes-csi/drivers v1.0.2
-	github.com/kubernetes-sigs/container-object-storage-interface-api v0.0.0-20210112203836-a74c106d3ab3
+	github.com/kubernetes-sigs/container-object-storage-interface-api v0.0.0-20210126191231-321ababeabd5
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
-	github.com/pkg/errors v0.9.1
 	github.com/spf13/afero v1.4.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.1.1

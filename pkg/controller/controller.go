@@ -20,7 +20,7 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
-func NewControllerServer() (*ControllerServer, error) {
+func NewControllerServer() (csi.ControllerServer, error) {
 	return &ControllerServer{}, nil
 }
 
