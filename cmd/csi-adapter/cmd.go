@@ -20,9 +20,9 @@ import (
 	"flag"
 	"os"
 
-	_ "github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	_ "k8s.io/klog/v2"
 )
 
 var Version string
@@ -51,7 +51,7 @@ func init() {
 	Version = "v0.0.1"
 
 	viper.AutomaticEnv()
-	// parse the go default flagset to get flags for glog and other packages in future
+	// parse the go default flagset to get flags for klog and other packages in future
 	driverCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	// defaulting this to true so that logs are printed to console
 	_ = flag.Set("logtostderr", "true")
@@ -71,7 +71,7 @@ func init() {
 	_ = driverCmd.PersistentFlags().MarkHidden("stderrthreshold")
 	_ = driverCmd.PersistentFlags().MarkHidden("vmodule")
 
-	// suppress the incorrect prefix in glog output
+	// suppress the incorrect prefix in klog output
 	_ = flag.CommandLine.Parse([]string{})
 	_ = viper.BindPFlags(driverCmd.PersistentFlags())
 }

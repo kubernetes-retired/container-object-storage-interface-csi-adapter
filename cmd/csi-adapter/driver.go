@@ -19,17 +19,15 @@ package main
 import (
 	"os"
 
-	"github.com/golang/glog"
 	csicommon "github.com/kubernetes-csi/drivers/pkg/csi-common"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
-	"github.com/kubernetes-sigs/container-object-storage-interface-csi-adapter/pkg/controller"
-	id "github.com/kubernetes-sigs/container-object-storage-interface-csi-adapter/pkg/identity"
-	"github.com/kubernetes-sigs/container-object-storage-interface-csi-adapter/pkg/node"
+	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/controller"
+	id "sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/identity"
+	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/node"
 )
 
 func driver(args []string) error {
-
 	if protocol == "unix" {
 		if err := os.RemoveAll(listen); err != nil {
 			klog.Fatalf("could not prepare socket: %v", err)
@@ -40,7 +38,7 @@ func driver(args []string) error {
 	if err != nil {
 		return err
 	}
-	glog.V(5).Infof("identity server prepared")
+	klog.InfoS("identity server prepared")
 
 	nodeServer := node.NewNodeServerOrDie(identity, nodeID, dataRoot, volumeLimit)
 	controllerServer, err := controller.NewControllerServer()
