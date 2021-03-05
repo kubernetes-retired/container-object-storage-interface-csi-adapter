@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/klog"
+	klog "k8s.io/klog/v2"
 )
 
 var _ csi.NodeServer = &NodeServer{}

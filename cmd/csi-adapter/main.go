@@ -21,7 +21,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/golang/glog"
+	"k8s.io/klog/v2"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 
 	go func() {
 		s := <-sigs
-		glog.Infof("Exiting on signal %s %#v", s.String(), s)
+		klog.InfoS("Exiting on signal", "signal", s.String(), "value", s)
 	}()
 
 	if err := Execute(); err != nil {

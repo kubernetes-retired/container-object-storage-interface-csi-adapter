@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
-	"github.com/kubernetes-sigs/container-object-storage-interface-api/apis/objectstorage.k8s.io/v1alpha1"
-	cs "github.com/kubernetes-sigs/container-object-storage-interface-api/clientset/typed/objectstorage.k8s.io/v1alpha1"
+	"sigs.k8s.io/container-object-storage-interface-api/apis/objectstorage.k8s.io/v1alpha1"
+	cs "sigs.k8s.io/container-object-storage-interface-api/clientset/typed/objectstorage.k8s.io/v1alpha1"
 )
 
 type NodeClient struct {
@@ -57,20 +58,19 @@ func (n *NodeClient) getBAR(ctx context.Context, barName, barNs string) (*v1alph
 	klog.Infof("getting bucketAccessRequest %q", fmt.Sprintf("%s/%s", barNs, barName))
 	bar, err := n.cosiClient.BucketAccessRequests(barNs).Get(ctx, barName, metav1.GetOptions{})
 	if err != nil {
-		return nil, logErr(getError("bucketAccessRequest", fmt.Sprintf("%s/%s", barNs, barName), err))
+		return nil, errors.Wrap(err, "get bucketAccessRequest failed")
 	}
-	// TODO: need to enable validation after resolving status issue - Krish
 	if bar == nil {
-		return nil, logErr(fmt.Errorf("bucketAccessRequest is nil %q", fmt.Sprintf("%s/%s", barNs, barName)))
+		return nil, fmt.Errorf("bucketAccessRequest is nil %q", fmt.Sprintf("%s/%s", barNs, barName))
 	}
 	if !bar.Status.AccessGranted {
-		return nil, logErr(fmt.Errorf("bucketAccessRequest does not grant access %q", fmt.Sprintf("%s/%s", barNs, barName)))
+		return nil, fmt.Errorf("bucketAccessRequest does not grant access %q", fmt.Sprintf("%s/%s", barNs, barName))
 	}
 	if len(bar.Spec.BucketRequestName) == 0 {
-		return nil, logErr(fmt.Errorf("bucketAccessRequest.Spec.BucketRequestName unset"))
+		return nil, fmt.Errorf("bucketAccessRequest.Spec.BucketRequestName unset")
 	}
 	if len(bar.Spec.BucketAccessName) == 0 {
-		return nil, logErr(fmt.Errorf("bucketAccessRequest.Spec.BucketAccessName unset"))
+		return nil, fmt.Errorf("bucketAccessRequest.Spec.BucketAccessName unset")
 	}
 	return bar, nil
 }
@@ -81,7 +81,6 @@ func (n *NodeClient) getBA(ctx context.Context, baName string) (*v1alpha1.Bucket
 	if err != nil {
 		return nil, logErr(getError("bucketAccess", baName, err))
 	}
-	// TODO: need to enable validation after resolving status issue - Krish
 	if ba == nil {
 		return nil, logErr(fmt.Errorf("bucketAccess is nil %q", fmt.Sprintf("%s", baName)))
 	}
@@ -100,7 +99,6 @@ func (n *NodeClient) getBR(ctx context.Context, brName, brNs string) (*v1alpha1.
 	if err != nil {
 		return nil, logErr(getError("bucketRequest", fmt.Sprintf("%s/%s", brNs, brName), err))
 	}
-	// TODO: need to enable validation after resolving status issue - Krish
 	if br == nil {
 		return nil, logErr(fmt.Errorf("bucketRequest is nil %q", fmt.Sprintf("%s/%s", brNs, brName)))
 	}
@@ -120,7 +118,6 @@ func (n *NodeClient) getB(ctx context.Context, bName string) (*v1alpha1.Bucket, 
 	if err != nil {
 		return nil, logErr(getError("bucket", bName, err))
 	}
-	// TODO: need to enable validation after resolving status issue - Krish
 	if bkt == nil {
 		return nil, logErr(fmt.Errorf("bucket is nil %q", fmt.Sprintf("%s", bName)))
 	}
