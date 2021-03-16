@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,9 +13,19 @@ import (
 	"k8s.io/utils/mount"
 )
 
+const (
+	finalizer = "cosi.objectstorage.k8s.io/bucketaccess-protection"
+)
+
 type Provisioner struct {
 	dataPath string
 	mounter  mount.Interface
+}
+
+type Metadata struct {
+	baName       string
+	podName      string
+	podNamespace string
 }
 
 func NewProvisioner(dataPath string) Provisioner {
@@ -28,8 +39,12 @@ func (p Provisioner) volPath(volID string) string {
 	return filepath.Join(p.dataPath, volID)
 }
 
+func (p Provisioner) bucketPath(volID string) string {
+	return filepath.Join(p.dataPath, "bucket", volID)
+}
+
 func (p Provisioner) createDir(volID string) error {
-	if err := os.MkdirAll(p.volPath(volID), 0750); err != nil {
+	if err := os.MkdirAll(p.bucketPath(volID), 0750); err != nil {
 		return fmt.Errorf("publish volume failed: %v", err)
 	}
 	return nil
@@ -60,15 +75,23 @@ func (p Provisioner) mountDir(volID, targetPath string) error {
 		return nil
 	}
 
-	if err := p.mounter.Mount(p.volPath(volID), targetPath, "", []string{"bind"}); err != nil {
+	if err := p.mounter.Mount(p.bucketPath(volID), targetPath, "", []string{"bind"}); err != nil {
 		var errList strings.Builder
 		errList.WriteString(err.Error())
-		if rmErr := os.RemoveAll(p.volPath(volID)); rmErr != nil && !os.IsNotExist(rmErr) {
+		if rmErr := os.RemoveAll(p.bucketPath(volID)); rmErr != nil && !os.IsNotExist(rmErr) {
 			errList.WriteString(fmt.Sprintf(" :%s", rmErr.Error()))
 		}
-		return fmt.Errorf("failed to mount device: %s at %s: %s", p.volPath(volID), targetPath, errList.String())
+		return fmt.Errorf("failed to mount device: %s at %s: %s", p.bucketPath(volID), targetPath, errList.String())
 	}
 
+	return nil
+}
+
+func (p Provisioner) writeFileToVolumeMount(data []byte, volID, fileName string) error {
+	err := writeFile(data, filepath.Join(p.bucketPath(volID), fileName))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -78,6 +101,10 @@ func (p Provisioner) writeFileToVolume(data []byte, volID, fileName string) erro
 		return err
 	}
 	return nil
+}
+
+func (p Provisioner) readFileFromVolume(volID, fileName string) ([]byte, error) {
+	return ioutil.ReadFile(filepath.Join(p.volPath(volID), fileName))
 }
 
 func (p Provisioner) removeMount(path string) error {
@@ -104,4 +131,8 @@ func writeFile(data []byte, filepath string) error {
 	}
 
 	return nil
+}
+
+func (m Metadata) finalizer() string {
+	return fmt.Sprintf("%s-%s-%s", finalizer, m.podNamespace, m.podName)
 }
