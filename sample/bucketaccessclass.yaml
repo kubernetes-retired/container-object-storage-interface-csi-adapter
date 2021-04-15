@@ -6,4 +6,6 @@ kind: BucketAccessClass
 apiVersion: objectstorage.k8s.io/v1alpha1
 metadata:
   name: sample-bac
-provisioner: sample
+policyActionsConfigMap: 
+  name: sample-cm
+  namespace: default

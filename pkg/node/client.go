@@ -69,7 +69,7 @@ func (n *NodeClient) getBAR(ctx context.Context, barName, barNs string) (*v1alph
 	if len(bar.Spec.BucketRequestName) == 0 {
 		return nil, fmt.Errorf("bucketAccessRequest.Spec.BucketRequestName unset")
 	}
-	if len(bar.Spec.BucketAccessName) == 0 {
+	if len(bar.Status.BucketAccessName) == 0 {
 		return nil, fmt.Errorf("bucketAccessRequest.Spec.BucketAccessName unset")
 	}
 	return bar, nil
@@ -105,7 +105,7 @@ func (n *NodeClient) getBR(ctx context.Context, brName, brNs string) (*v1alpha1.
 	if !br.Status.BucketAvailable {
 		return nil, logErr(fmt.Errorf("bucketRequest is not available yet %q", fmt.Sprintf("%s/%s", brNs, brName)))
 	}
-	if len(br.Spec.BucketInstanceName) == 0 {
+	if len(br.Status.BucketName) == 0 {
 		return nil, logErr(fmt.Errorf("bucketRequest.Spec.BucketInstanceName unset"))
 	}
 	return br, nil
@@ -138,7 +138,7 @@ func (n *NodeClient) GetResources(ctx context.Context, barName, barNs string) (b
 		return
 	}
 
-	if ba, err = n.getBA(ctx, bar.Spec.BucketAccessName); err != nil {
+	if ba, err = n.getBA(ctx, bar.Status.BucketAccessName); err != nil {
 		return
 	}
 
@@ -146,7 +146,7 @@ func (n *NodeClient) GetResources(ctx context.Context, barName, barNs string) (b
 		return
 	}
 
-	if bkt, err = n.getB(ctx, br.Spec.BucketInstanceName); err != nil {
+	if bkt, err = n.getB(ctx, br.Status.BucketName); err != nil {
 		return
 	}
 
@@ -160,15 +160,15 @@ func (n *NodeClient) GetResources(ctx context.Context, barName, barNs string) (b
 func (n *NodeClient) getProtocol(bkt *v1alpha1.Bucket) (data []byte, err error) {
 	klog.Infof("bucket protocol %+v", bkt.Spec.Protocol)
 	var protocolConnection interface{}
-	switch bkt.Spec.Protocol.Name {
-	case v1alpha1.ProtocolNameS3:
+	switch {
+	case bkt.Spec.Protocol.S3 != nil:
 		protocolConnection = bkt.Spec.Protocol.S3
-	case v1alpha1.ProtocolNameAzure:
+	case bkt.Spec.Protocol.AzureBlob != nil:
 		protocolConnection = bkt.Spec.Protocol.AzureBlob
-	case v1alpha1.ProtocolNameGCS:
+	case bkt.Spec.Protocol.GCS != nil:
 		protocolConnection = bkt.Spec.Protocol.GCS
 	default:
-		err = fmt.Errorf("unrecognized protocol %q, unable to extract connection data", bkt.Spec.Protocol.Name)
+		err = fmt.Errorf("unrecognized protocol %+v, unable to extract connection data", bkt.Spec.Protocol)
 	}
 	if err != nil {
 		return nil, logErr(err)
