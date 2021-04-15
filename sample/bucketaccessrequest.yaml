@@ -9,7 +9,7 @@ metadata:
   name: sample-bar
 spec:
   bucketAccessClassName: sample-bac
-  bucketAccessName: sample-ba
   bucketRequestName: sample-br 
+  serviceAccountName: sample-sa
 status:
   accessGranted: true

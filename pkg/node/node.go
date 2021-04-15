@@ -70,7 +70,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	klog.Infof("bucket %q has protocol %q", bkt.Name, bkt.Spec.Protocol.Name)
+	klog.Infof("bucket %q has protocol %q", bkt.Name, bkt.Spec.Protocol)
 
 	if err := n.provisioner.createDir(request.GetVolumeId()); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

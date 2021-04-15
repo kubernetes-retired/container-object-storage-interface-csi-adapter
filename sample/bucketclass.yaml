@@ -6,12 +6,14 @@ kind: BucketClass
 apiVersion: objectstorage.k8s.io/v1alpha1
 metadata:
   name: sample-bc
+provisioner: minio.objectstorage.k8s.io
+isDefaultBucketClass: true
+allowedNamespaces:
+- default
 protocol:
-  name: s3
   s3:
     bucketName: sampleBucket
     endpoint: sampleBucket.com
     region: us-east-1
-    signatureVersion: s3v4
-  version: v1alpha1
-provisioner: sample
+    signatureVersion: S3V4
+deletionPolicy: Delete

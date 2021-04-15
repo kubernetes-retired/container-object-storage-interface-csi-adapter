@@ -8,7 +8,6 @@ metadata:
   name: sample-br
 spec:
   bucketClassName: sample-bc
-  bucketInstanceName: sample-b
   bucketPrefix: test
 status:
   bucketAvailable: true
