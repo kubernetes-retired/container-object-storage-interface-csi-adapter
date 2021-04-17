@@ -5,7 +5,8 @@ metadata:
 spec:
   containers:
   - name: web
-    image: quay.io/krishchow/cosi-app
+    image: quay.io/krishchow/cosi-app:latest
+    imagePullPolicy: Always
     ports:
     - name: web
       containerPort: 80
@@ -15,9 +16,7 @@ spec:
       mountPath: /data/cosi
     env:
       - name: PORT
-        value: "3000"
-      - name: MOUNT_PATH
-        value: "/data/cosi"
+        value: "3001"
   volumes:
   - name: cosi-secrets
     csi:

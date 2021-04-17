@@ -102,7 +102,7 @@ func (n *NodeClient) getBA(ctx context.Context, baName string) (*v1alpha1.Bucket
 	if !ba.Status.AccessGranted {
 		return nil, logErr(fmt.Errorf("bucketAccess does not grant access %q", fmt.Sprintf("%s", baName)))
 	}
-	if len(ba.Spec.MintedSecretName) == 0 {
+	if ba.Status.MintedSecret == nil {
 		return nil, logErr(fmt.Errorf("bucketAccess.Spec.MintedSecretName unset"))
 	}
 	return ba, nil
@@ -157,8 +157,8 @@ func (n *NodeClient) GetResources(ctx context.Context, barName, barNs string) (b
 		return
 	}
 
-	if secret, err = n.kubeClient.CoreV1().Secrets(barNs).Get(ctx, ba.Spec.MintedSecretName, metav1.GetOptions{}); err != nil {
-		_ = logErr(getError("secret", fmt.Sprintf("%s/%s", barNs, ba.Spec.MintedSecretName), err))
+	if secret, err = n.kubeClient.CoreV1().Secrets(ba.Status.MintedSecret.Namespace).Get(ctx, ba.Status.MintedSecret.Name, metav1.GetOptions{}); err != nil {
+		_ = logErr(getError("secret", fmt.Sprintf("%s/%s", ba.Status.MintedSecret.Namespace, ba.Status.MintedSecret.Name), err))
 		return
 	}
 	return

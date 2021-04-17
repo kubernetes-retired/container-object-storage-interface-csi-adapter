@@ -23,9 +23,9 @@ type Provisioner struct {
 }
 
 type Metadata struct {
-	baName       string
-	podName      string
-	podNamespace string
+	BaName       string `json:"baName"`
+	PodName      string `json:"podName"`
+	PodNamespace string `json:"podNamespace"`
 }
 
 func NewProvisioner(dataPath string) Provisioner {
@@ -40,7 +40,7 @@ func (p Provisioner) volPath(volID string) string {
 }
 
 func (p Provisioner) bucketPath(volID string) string {
-	return filepath.Join(p.dataPath, "bucket", volID)
+	return filepath.Join(p.dataPath, volID, "bucket")
 }
 
 func (p Provisioner) createDir(volID string) error {
@@ -134,5 +134,5 @@ func writeFile(data []byte, filepath string) error {
 }
 
 func (m Metadata) finalizer() string {
-	return fmt.Sprintf("%s-%s-%s", finalizer, m.podNamespace, m.podName)
+	return fmt.Sprintf("%s-%s-%s", finalizer, m.PodNamespace, m.PodName)
 }

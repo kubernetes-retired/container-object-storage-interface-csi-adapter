@@ -15,7 +15,7 @@ import (
 var _ csi.NodeServer = &NodeServer{}
 
 const (
-	credsFileName    = "credentials"
+	credsFileName    = "credentials.json"
 	protocolFileName = "protocolConn.json"
 	metadataFilename = "metadata.json"
 )
@@ -93,9 +93,9 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 	}
 
 	meta := Metadata{
-		baName:       ba.Name,
-		podName:      podName,
-		podNamespace: podNs,
+		BaName:       ba.Name,
+		PodName:      podName,
+		PodNamespace: podNs,
 	}
 
 	err = n.cosiClient.addBAFinalizer(ctx, ba, meta.finalizer())
@@ -119,16 +119,6 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	klog.Infof("NodeUnpublishVolume: volId: %v, targetPath: %v\n", request.GetVolumeId(), request.GetTargetPath())
 
-	err := n.provisioner.removeDir(request.GetVolumeId())
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	err = n.provisioner.removeMount(request.GetTargetPath())
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
 	data, err := n.provisioner.readFileFromVolume(request.GetVolumeId(), metadataFilename)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -140,12 +130,24 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	ba, err := n.cosiClient.getBA(ctx, meta.baName)
+	klog.InfoS("read metadata file", "metadata", meta)
+
+	ba, err := n.cosiClient.getBA(ctx, meta.BaName)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	err = n.cosiClient.removeBAFinalizer(ctx, ba, meta.finalizer())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	err = n.provisioner.removeMount(request.GetTargetPath())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	err = n.provisioner.removeDir(request.GetVolumeId())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
