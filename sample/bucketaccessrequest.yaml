@@ -10,6 +10,5 @@ metadata:
 spec:
   bucketAccessClassName: sample-bac
   bucketRequestName: sample-br 
-  serviceAccountName: sample-sa
 status:
   accessGranted: true

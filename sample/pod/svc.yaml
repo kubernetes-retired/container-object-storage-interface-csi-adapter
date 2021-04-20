@@ -1,0 +1,9 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: minio
+spec:
+  type: ExternalName
+  externalName: minio.objectstorage-provisioner-ns.svc.cluster.local
+  ports:
+    - port: 9000

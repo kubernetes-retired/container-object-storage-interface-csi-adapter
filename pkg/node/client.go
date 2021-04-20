@@ -14,6 +14,15 @@ import (
 
 	"sigs.k8s.io/container-object-storage-interface-api/apis/objectstorage.k8s.io/v1alpha1"
 	cs "sigs.k8s.io/container-object-storage-interface-api/clientset/typed/objectstorage.k8s.io/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+const (
+	podNameKey      = "csi.storage.k8s.io/pod.name"
+	podNamespaceKey = "csi.storage.k8s.io/pod.namespace"
+
+	barNameKey      = "bar-name"
+	barNamespaceKey = "bar-namespace"
 )
 
 type NodeClient struct {
@@ -43,15 +52,21 @@ func parseValue(key string, volCtx map[string]string) (string, error) {
 	return value, nil
 }
 
-func parseVolumeContext(volCtx map[string]string) (name, ns string, err error) {
+func parseVolumeContext(volCtx map[string]string) (barname, barns, podname, podns string, err error) {
 	klog.Info("parsing bucketAccessRequest namespace/name from volume context")
-	if name, err = parseValue(barNameKey, volCtx); err != nil {
-		return "", "", err
+	if barname, err = parseValue(barNameKey, volCtx); err != nil {
+		return "", "", "", "", err
 	}
-	if ns, err = parseValue(barNamespaceKey, volCtx); err != nil {
-		return "", "", err
+	if barns, err = parseValue(barNamespaceKey, volCtx); err != nil {
+		return "", "", "", "", err
 	}
-	return name, ns, nil
+	if podname, err = parseValue(podNameKey, volCtx); err != nil {
+		return "", "", "", "", err
+	}
+	if podns, err = parseValue(podNamespaceKey, volCtx); err != nil {
+		return "", "", "", "", err
+	}
+	return barname, barns, podname, podns, nil
 }
 
 func (n *NodeClient) getBAR(ctx context.Context, barName, barNs string) (*v1alpha1.BucketAccessRequest, error) {
@@ -87,7 +102,7 @@ func (n *NodeClient) getBA(ctx context.Context, baName string) (*v1alpha1.Bucket
 	if !ba.Status.AccessGranted {
 		return nil, logErr(fmt.Errorf("bucketAccess does not grant access %q", fmt.Sprintf("%s", baName)))
 	}
-	if len(ba.Spec.MintedSecretName) == 0 {
+	if ba.Status.MintedSecret == nil {
 		return nil, logErr(fmt.Errorf("bucketAccess.Spec.MintedSecretName unset"))
 	}
 	return ba, nil
@@ -127,12 +142,8 @@ func (n *NodeClient) getB(ctx context.Context, bName string) (*v1alpha1.Bucket, 
 	return bkt, nil
 }
 
-func (n *NodeClient) GetResources(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, secret *v1.Secret, err error) {
-	var (
-		bar *v1alpha1.BucketAccessRequest
-		ba  *v1alpha1.BucketAccess
-		br  *v1alpha1.BucketRequest
-	)
+func (n *NodeClient) GetResources(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+	var bar *v1alpha1.BucketAccessRequest
 
 	if bar, err = n.getBAR(ctx, barName, barNs); err != nil {
 		return
@@ -142,16 +153,12 @@ func (n *NodeClient) GetResources(ctx context.Context, barName, barNs string) (b
 		return
 	}
 
-	if br, err = n.getBR(ctx, bar.Spec.BucketRequestName, barNs); err != nil {
+	if bkt, err = n.getB(ctx, ba.Spec.BucketName); err != nil {
 		return
 	}
 
-	if bkt, err = n.getB(ctx, br.Status.BucketName); err != nil {
-		return
-	}
-
-	if secret, err = n.kubeClient.CoreV1().Secrets(barNs).Get(ctx, ba.Spec.MintedSecretName, metav1.GetOptions{}); err != nil {
-		_ = logErr(getError("secret", fmt.Sprintf("%s/%s", barNs, ba.Spec.MintedSecretName), err))
+	if secret, err = n.kubeClient.CoreV1().Secrets(ba.Status.MintedSecret.Namespace).Get(ctx, ba.Status.MintedSecret.Name, metav1.GetOptions{}); err != nil {
+		_ = logErr(getError("secret", fmt.Sprintf("%s/%s", ba.Status.MintedSecret.Namespace, ba.Status.MintedSecret.Name), err))
 		return
 	}
 	return
@@ -170,11 +177,29 @@ func (n *NodeClient) getProtocol(bkt *v1alpha1.Bucket) (data []byte, err error) 
 	default:
 		err = fmt.Errorf("unrecognized protocol %+v, unable to extract connection data", bkt.Spec.Protocol)
 	}
+
 	if err != nil {
 		return nil, logErr(err)
 	}
+
 	if data, err = json.Marshal(protocolConnection); err != nil {
 		return nil, logErr(err)
 	}
 	return data, nil
+}
+
+func (n *NodeClient) addBAFinalizer(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error {
+	controllerutil.AddFinalizer(ba, BAFinalizer)
+	if _, err := n.cosiClient.BucketAccesses().Update(ctx, ba, metav1.UpdateOptions{}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (n *NodeClient) removeBAFinalizer(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error {
+	controllerutil.RemoveFinalizer(ba, BAFinalizer)
+	if _, err := n.cosiClient.BucketAccesses().Update(ctx, ba, metav1.UpdateOptions{}); err != nil {
+		return err
+	}
+	return nil
 }

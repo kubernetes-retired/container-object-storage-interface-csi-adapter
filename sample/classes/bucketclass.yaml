@@ -12,8 +12,8 @@ allowedNamespaces:
 - default
 protocol:
   s3:
-    bucketName: sampleBucket
-    endpoint: sampleBucket.com
+    bucketName: samplebucket
+    endpoint: minio.chowdhary.ca
     region: us-east-1
     signatureVersion: S3V4
 deletionPolicy: Delete
