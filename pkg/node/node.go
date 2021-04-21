@@ -3,40 +3,34 @@ package node
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	v1 "k8s.io/api/core/v1"
-	klog "k8s.io/klog/v2"
+	"k8s.io/klog/v2"
+	"k8s.io/mount-utils"
+
+	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/client"
+	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/util"
 )
 
 var _ csi.NodeServer = &NodeServer{}
 
 const (
-	credsFileName    = "credentials.json"
+	credsFileName    = "credentials"
 	protocolFileName = "protocolConn.json"
 	metadataFilename = "metadata.json"
 )
 
-var getError = func(t, n string, e error) error { return fmt.Errorf("failed to get <%s>%s: %v", t, n, e) }
-
 func NewNodeServerOrDie(driverName, nodeID, dataRoot string, volumeLimit int64) csi.NodeServer {
-	client := NewClientOrDie()
 	return &NodeServer{
 		name:        driverName,
 		nodeID:      nodeID,
-		cosiClient:  client,
-		provisioner: NewProvisioner(dataRoot),
+		cosiClient:  client.NewClientOrDie(),
+		provisioner: NewProvisioner(dataRoot, mount.New(""), client.NewProvisionerClient()),
 		volumeLimit: volumeLimit,
 	}
-}
-
-// logErr should be called at the interface method scope, prior to returning errors to the gRPC client.
-func logErr(e error) error {
-	klog.Error(e)
-	return e
 }
 
 // NodeServer implements the NodePublishVolume and NodeUnpublishVolume methods
@@ -45,7 +39,7 @@ type NodeServer struct {
 	csi.UnimplementedNodeServer
 	name        string
 	nodeID      string
-	cosiClient  *NodeClient
+	cosiClient  client.NodeClient
 	provisioner Provisioner
 	volumeLimit int64
 }
@@ -53,7 +47,7 @@ type NodeServer struct {
 func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	klog.Infof("NodePublishVolume: volId: %v, targetPath: %v\n", request.GetVolumeId(), request.TargetPath)
 
-	barName, barNs, podName, podNs, err := parseVolumeContext(request.VolumeContext)
+	barName, barNs, podName, podNs, err := client.ParseVolumeContext(request.VolumeContext)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -63,7 +57,7 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 
-	protocolConnection, err := n.cosiClient.getProtocol(bkt)
+	protocolConnection, err := n.cosiClient.GetProtocol(bkt)
 	if err != nil {
 		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
@@ -74,21 +68,37 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	creds, err := parseData(secret)
+	creds, err := util.ParseData(secret)
 	if err != nil {
+		rmErr := n.provisioner.removeDir(request.GetVolumeId())
+		if rmErr != nil {
+			return nil, status.Errorf(codes.Internal, "Parsing Secret Failed: %v", errors.Wrap(err, "failed to parse secret"))
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	if err := n.provisioner.writeFileToVolumeMount(protocolConnection, request.GetVolumeId(), protocolFileName); err != nil {
+		rmErr := n.provisioner.removeDir(request.GetVolumeId())
+		if rmErr != nil {
+			return nil, status.Errorf(codes.Internal, "Parsing Secret Failed: %v", errors.Wrap(err, "failed to parse secret"))
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	if err := n.provisioner.writeFileToVolumeMount(creds, request.GetVolumeId(), credsFileName); err != nil {
+		rmErr := n.provisioner.removeDir(request.GetVolumeId())
+		if rmErr != nil {
+			return nil, status.Errorf(codes.Internal, "Parsing Secret Failed: %v", errors.Wrap(err, "failed to parse secret"))
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	err = n.provisioner.mountDir(request.GetVolumeId(), request.GetTargetPath())
 	if err != nil {
+		rmErr := n.provisioner.removeDir(request.GetVolumeId())
+		if rmErr != nil {
+			return nil, status.Errorf(codes.Internal, "Parsing Secret Failed: %v", errors.Wrap(err, "failed to parse secret"))
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -98,18 +108,30 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		PodNamespace: podNs,
 	}
 
-	err = n.cosiClient.addBAFinalizer(ctx, ba, meta.finalizer())
+	err = n.cosiClient.AddBAFinalizer(ctx, ba, meta.finalizer())
 	if err != nil {
+		rmErr := n.provisioner.removeDir(request.GetVolumeId())
+		if rmErr != nil {
+			return nil, status.Errorf(codes.Internal, "Parsing Secret Failed: %v", errors.Wrap(err, "failed to parse secret"))
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	data, err := json.Marshal(meta)
 	if err != nil {
+		rmErr := n.provisioner.removeDir(request.GetVolumeId())
+		if rmErr != nil {
+			return nil, status.Errorf(codes.Internal, "Parsing Secret Failed: %v", errors.Wrap(err, "failed to parse secret"))
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	// Write the BA.name to a metadata file in our volume, this is not mounted to the app pod
 	if err := n.provisioner.writeFileToVolume(data, request.GetVolumeId(), metadataFilename); err != nil {
+		rmErr := n.provisioner.removeDir(request.GetVolumeId())
+		if rmErr != nil {
+			return nil, status.Errorf(codes.Internal, "Parsing Secret Failed: %v", errors.Wrap(err, "failed to parse secret"))
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -132,12 +154,12 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 
 	klog.InfoS("read metadata file", "metadata", meta)
 
-	ba, err := n.cosiClient.getBA(ctx, meta.BaName)
+	ba, err := n.cosiClient.GetBA(ctx, meta.BaName)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	err = n.cosiClient.removeBAFinalizer(ctx, ba, meta.finalizer())
+	err = n.cosiClient.RemoveBAFinalizer(ctx, ba, meta.finalizer())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -149,7 +171,7 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 
 	err = n.provisioner.removeDir(request.GetVolumeId())
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "Publish Volume Failed: %v", err)
 	}
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
@@ -165,16 +187,4 @@ func (n *NodeServer) NodeGetInfo(ctx context.Context, request *csi.NodeGetInfoRe
 
 func (n *NodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	return &csi.NodeGetCapabilitiesResponse{}, nil
-}
-
-func parseData(s *v1.Secret) ([]byte, error) {
-	output := make(map[string]string)
-	for key, value := range s.Data {
-		output[key] = string(value)
-	}
-	data, err := json.Marshal(output)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
 }
