@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-
 	"github.com/google/go-cmp/cmp"
 	"k8s.io/mount-utils"
 

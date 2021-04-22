@@ -30,7 +30,7 @@ const (
 var _ NodeClient = &nodeClient{}
 
 type nodeClient struct {
-	cosiClient *cs.ObjectstorageV1alpha1Client
+	cosiClient cs.ObjectstorageV1alpha1Interface
 	kubeClient kubernetes.Interface
 }
 
@@ -82,19 +82,17 @@ func (n *nodeClient) GetBAR(ctx context.Context, barName, barNs string) (*v1alph
 	klog.Infof("getting bucketAccessRequest %q", fmt.Sprintf("%s/%s", barNs, barName))
 	bar, err := n.cosiClient.BucketAccessRequests(barNs).Get(ctx, barName, metav1.GetOptions{})
 	if err != nil {
-		return nil, errors.Wrap(err, "get bucketAccessRequest failed")
-	}
-	if bar == nil {
-		return nil, fmt.Errorf("bucketAccessRequest is nil %q", fmt.Sprintf("%s/%s", barNs, barName))
+		return nil, util.LogErr(errors.Wrap(err, util.WrapErrorGetBARFailed))
 	}
 	if !bar.Status.AccessGranted {
-		return nil, fmt.Errorf("bucketAccessRequest does not grant access %q", fmt.Sprintf("%s/%s", barNs, barName))
+		return nil, util.LogErr(util.ErrorBARNoAccess)
 	}
+	// TODO: BAR.Spec.BucketRequestName can be unset if the BucketName is set
 	if len(bar.Spec.BucketRequestName) == 0 {
-		return nil, fmt.Errorf("bucketAccessRequest.Spec.BucketRequestName unset")
+		return nil, util.LogErr(util.ErrorBARUnsetBR)
 	}
 	if len(bar.Status.BucketAccessName) == 0 {
-		return nil, fmt.Errorf("bucketAccessRequest.Spec.BucketAccessName unset")
+		return nil, util.LogErr(util.ErrorBARUnsetBA)
 	}
 	return bar, nil
 }
@@ -103,16 +101,13 @@ func (n *nodeClient) GetBA(ctx context.Context, baName string) (*v1alpha1.Bucket
 	klog.Infof("getting bucketAccess %q", fmt.Sprintf("%s", baName))
 	ba, err := n.cosiClient.BucketAccesses().Get(ctx, baName, metav1.GetOptions{})
 	if err != nil {
-		return nil, util.LogErr(util.GetError("bucketAccess", baName, err))
-	}
-	if ba == nil {
-		return nil, util.LogErr(fmt.Errorf("bucketAccess is nil %q", fmt.Sprintf("%s", baName)))
+		return nil, util.LogErr(errors.Wrap(err, util.WrapErrorGetBAFailed))
 	}
 	if !ba.Status.AccessGranted {
-		return nil, util.LogErr(fmt.Errorf("bucketAccess does not grant access %q", fmt.Sprintf("%s", baName)))
+		return nil, util.LogErr(util.ErrorBANoAccess)
 	}
 	if ba.Status.MintedSecret == nil {
-		return nil, util.LogErr(fmt.Errorf("bucketAccess.Spec.MintedSecretName unset"))
+		return nil, util.LogErr(util.ErrorBANoMintedSecret)
 	}
 	return ba, nil
 }
@@ -121,16 +116,13 @@ func (n *nodeClient) GetBR(ctx context.Context, brName, brNs string) (*v1alpha1.
 	klog.Infof("getting bucketRequest %q", brName)
 	br, err := n.cosiClient.BucketRequests(brNs).Get(ctx, brName, metav1.GetOptions{})
 	if err != nil {
-		return nil, util.LogErr(util.GetError("bucketRequest", fmt.Sprintf("%s/%s", brNs, brName), err))
-	}
-	if br == nil {
-		return nil, util.LogErr(fmt.Errorf("bucketRequest is nil %q", fmt.Sprintf("%s/%s", brNs, brName)))
+		return nil, util.LogErr(errors.Wrap(err, util.WrapErrorGetBRFailed))
 	}
 	if !br.Status.BucketAvailable {
-		return nil, util.LogErr(fmt.Errorf("bucketRequest is not available yet %q", fmt.Sprintf("%s/%s", brNs, brName)))
+		return nil, util.LogErr(util.ErrorBRNotAvailable)
 	}
 	if len(br.Status.BucketName) == 0 {
-		return nil, util.LogErr(fmt.Errorf("bucketRequest.Spec.BucketInstanceName unset"))
+		return nil, util.LogErr(util.ErrorBRUnsetBucketName)
 	}
 	return br, nil
 }
@@ -140,13 +132,10 @@ func (n *nodeClient) GetB(ctx context.Context, bName string) (*v1alpha1.Bucket, 
 	// is BucketInstanceName the correct field, or should it be BucketClass
 	bkt, err := n.cosiClient.Buckets().Get(ctx, bName, metav1.GetOptions{})
 	if err != nil {
-		return nil, util.LogErr(util.GetError("bucket", bName, err))
-	}
-	if bkt == nil {
-		return nil, util.LogErr(fmt.Errorf("bucket is nil %q", fmt.Sprintf("%s", bName)))
+		return nil, util.LogErr(errors.Wrap(err, util.WrapErrorGetBFailed))
 	}
 	if !bkt.Status.BucketAvailable {
-		return nil, util.LogErr(fmt.Errorf("bucket is not available yet %q", fmt.Sprintf("%s", bName)))
+		return nil, util.LogErr(util.ErrorBNotAvailable)
 	}
 	return bkt, nil
 }
@@ -167,15 +156,20 @@ func (n *nodeClient) GetResources(ctx context.Context, barName, barNs string) (b
 	}
 
 	if secret, err = n.kubeClient.CoreV1().Secrets(ba.Status.MintedSecret.Namespace).Get(ctx, ba.Status.MintedSecret.Name, metav1.GetOptions{}); err != nil {
-		_ = util.LogErr(util.GetError("secret", fmt.Sprintf("%s/%s", ba.Status.MintedSecret.Namespace, ba.Status.MintedSecret.Name), err))
+		err = errors.Wrap(err, util.WrapErrorGetSecretFailed)
 		return
 	}
 	return
 }
 
-func (n *nodeClient) GetProtocol(bkt *v1alpha1.Bucket) (data []byte, err error) {
+func (n *nodeClient) GetProtocol(bkt *v1alpha1.Bucket) ([]byte, error) {
 	klog.Infof("bucket protocol %+v", bkt.Spec.Protocol)
-	var protocolConnection interface{}
+	var (
+		data               []byte
+		err                error
+		protocolConnection interface{}
+	)
+
 	switch {
 	case bkt.Spec.Protocol.S3 != nil:
 		protocolConnection = bkt.Spec.Protocol.S3
@@ -184,7 +178,7 @@ func (n *nodeClient) GetProtocol(bkt *v1alpha1.Bucket) (data []byte, err error) 
 	case bkt.Spec.Protocol.GCS != nil:
 		protocolConnection = bkt.Spec.Protocol.GCS
 	default:
-		err = fmt.Errorf("unrecognized protocol %+v, unable to extract connection data", bkt.Spec.Protocol)
+		err = util.ErrorInvalidProtocol
 	}
 
 	if err != nil {
@@ -192,7 +186,7 @@ func (n *nodeClient) GetProtocol(bkt *v1alpha1.Bucket) (data []byte, err error) 
 	}
 
 	if data, err = json.Marshal(protocolConnection); err != nil {
-		return nil, util.LogErr(err)
+		return nil, util.LogErr(errors.Wrap(err, util.WrapErrorMarshalProtocolFailed))
 	}
 	return data, nil
 }

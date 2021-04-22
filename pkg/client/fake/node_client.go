@@ -13,14 +13,14 @@ var _ client.NodeClient = &FakeNodeClient{}
 
 type FakeNodeClient struct {
 	MockGetBAR func(ctx context.Context, barName, barNs string) (*v1alpha1.BucketAccessRequest, error)
-	MockGetBA func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error)
-	MockGetBR func(ctx context.Context, brName, brNs string) (*v1alpha1.BucketRequest, error)
-	MockGetB func(ctx context.Context, bName string) (*v1alpha1.Bucket, error)
+	MockGetBA  func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error)
+	MockGetBR  func(ctx context.Context, brName, brNs string) (*v1alpha1.BucketRequest, error)
+	MockGetB   func(ctx context.Context, bName string) (*v1alpha1.Bucket, error)
 
 	MockGetResources func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error)
-	MockGetProtocol func(bkt *v1alpha1.Bucket) (data []byte, err error)
+	MockGetProtocol  func(bkt *v1alpha1.Bucket) (data []byte, err error)
 
-	MockAddBAFinalizer func(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error
+	MockAddBAFinalizer    func(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error
 	MockRemoveBAFinalizer func(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error
 }
 
