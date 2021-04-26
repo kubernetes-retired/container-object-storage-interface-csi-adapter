@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/util"
 
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
@@ -13,7 +14,6 @@ import (
 	"k8s.io/mount-utils"
 
 	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/client"
-	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/util"
 )
 
 const (
@@ -44,7 +44,7 @@ func (p Provisioner) bucketPath(volID string) string {
 
 func (p Provisioner) createDir(volID string) error {
 	if err := p.pclient.MkdirAll(p.bucketPath(volID), 0750); err != nil {
-		return fmt.Errorf("publish volume failed: %v", err)
+		return errors.Wrap(err, util.WrapErrorMkdirFailed)
 	}
 	return nil
 }
@@ -63,7 +63,7 @@ func (p Provisioner) mountDir(volID, targetPath string) error {
 		klog.Error(err)
 		if os.IsNotExist(err) {
 			if err = p.pclient.MkdirAll(targetPath, 0750); err != nil {
-				return err
+				return errors.Wrap(err, util.WrapErrorFailedToMkdirForMount)
 			}
 			notMnt = true
 		} else {
@@ -82,17 +82,17 @@ func (p Provisioner) mountDir(volID, targetPath string) error {
 }
 
 func (p Provisioner) writeFileToVolumeMount(data []byte, volID, fileName string) error {
-	err := p.writeFile(data, filepath.Join(p.bucketPath(volID), fileName))
+	err := p.pclient.WriteFile(data, filepath.Join(p.bucketPath(volID), fileName))
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.WrapErrorFailedToCreateBucketFile)
 	}
 	return nil
 }
 
 func (p Provisioner) writeFileToVolume(data []byte, volID, fileName string) error {
-	err := p.writeFile(data, filepath.Join(p.volPath(volID), fileName))
+	err := p.pclient.WriteFile(data, filepath.Join(p.volPath(volID), fileName))
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.WrapErrorFailedToCreateVolumeFile)
 	}
 	return nil
 }
@@ -107,23 +107,6 @@ func (p Provisioner) removeMount(path string) error {
 		klog.Error(err, "failed to clean and unmount target path", "targetPath", path)
 		return status.Error(codes.Internal, err.Error())
 	}
-	return nil
-}
-
-func (p Provisioner) writeFile(data []byte, filepath string) error {
-	klog.Infof("creating conn file: %s", filepath)
-
-	file, err := p.pclient.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, os.FileMode(0440))
-	if err != nil {
-		return util.LogErr(fmt.Errorf("error creating file: %s: %v", filepath, err))
-	}
-
-	defer file.Close()
-	_, err = file.Write(data)
-	if err != nil {
-		return util.LogErr(fmt.Errorf("unable to write to file: %v", err))
-	}
-
 	return nil
 }
 

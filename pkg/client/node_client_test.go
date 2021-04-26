@@ -18,112 +18,12 @@ import (
 	cs "sigs.k8s.io/container-object-storage-interface-api/clientset/typed/objectstorage.k8s.io/v1alpha1"
 
 	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/util"
+	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/util/test"
 )
 
 var (
 	ctx = context.Background()
 )
-
-const (
-	namespace = "test"
-)
-
-func getBAR() *v1alpha1.BucketAccessRequest {
-	return &v1alpha1.BucketAccessRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "bucketAccessRequestName",
-		},
-		Spec: v1alpha1.BucketAccessRequestSpec{
-			BucketName:            "bucketName",
-			BucketRequestName:     "bucketRequestName",
-			BucketAccessClassName: "bucketAccessClassName",
-			ServiceAccountName:    "serviceAccountName",
-		},
-		Status: v1alpha1.BucketAccessRequestStatus{
-			AccessGranted:    true,
-			BucketAccessName: "bucketAccessName",
-		},
-	}
-}
-
-func getBA() *v1alpha1.BucketAccess {
-	return &v1alpha1.BucketAccess{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "bucketAccessName",
-		},
-		Spec: v1alpha1.BucketAccessSpec{
-			BucketName: "bucketName",
-			BucketAccessRequest: &corev1.ObjectReference{
-				Name:      "bucketAccessRequest",
-				Namespace: namespace,
-			},
-			ServiceAccount: &corev1.ObjectReference{
-				Name:      "serviceAccount",
-				Namespace: namespace,
-			},
-			PolicyActionsConfigMapData: "policyActionData",
-		},
-		Status: v1alpha1.BucketAccessStatus{
-			AccessGranted: true,
-			MintedSecret: &corev1.SecretReference{
-				Name:      "mintedSecretName",
-				Namespace: namespace,
-			},
-			AccountID: "accountId",
-		},
-	}
-}
-
-func getSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "mintedSecretName",
-			Namespace: namespace,
-		},
-		Immutable: nil,
-		Data: map[string][]byte{
-			"credentials": []byte("test"),
-		},
-		Type: corev1.SecretTypeOpaque,
-	}
-}
-
-func getBR() *v1alpha1.BucketRequest {
-	return &v1alpha1.BucketRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "bucketRequestName",
-		},
-		Spec: v1alpha1.BucketRequestSpec{
-			BucketClassName: "bucketClassName",
-		},
-		Status: v1alpha1.BucketRequestStatus{
-			BucketAvailable: true,
-			BucketName:      "bucketName",
-		},
-	}
-}
-
-func getB() *v1alpha1.Bucket {
-	return &v1alpha1.Bucket{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "bucketName",
-		},
-		Spec: v1alpha1.BucketSpec{
-			Provisioner:     "test-provisioner",
-			BucketClassName: "bucketClassName",
-			BucketRequest: &corev1.ObjectReference{
-				Name:      "bucketRequestName",
-				Namespace: namespace,
-			},
-		},
-		Status: v1alpha1.BucketStatus{
-			BucketAvailable: true,
-			BucketID:        "bucketId",
-		},
-	}
-}
 
 func TestGetBAR(t *testing.T) {
 	type args struct {
@@ -144,23 +44,23 @@ func TestGetBAR(t *testing.T) {
 		"Successful": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.BucketAccessRequests(namespace).Create(ctx, getBAR(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, testutils.GetBAR(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
-				bar: getBAR(),
+				bar: testutils.GetBAR(),
 				err: nil,
 			},
 		},
 		"NotFound": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.BucketAccessRequests(namespace).Create(ctx, getBAR(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, testutils.GetBAR(), metav1.CreateOptions{})
 				},
 				barName: "wrongName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
 				bar: nil,
@@ -170,12 +70,12 @@ func TestGetBAR(t *testing.T) {
 		"FailNoAccess": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					bar := getBAR()
+					bar := testutils.GetBAR()
 					bar.Status.AccessGranted = false
-					_, _ = cosi.BucketAccessRequests(namespace).Create(ctx, bar, metav1.CreateOptions{})
+					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, bar, metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
 				bar: nil,
@@ -185,12 +85,12 @@ func TestGetBAR(t *testing.T) {
 		"FailNoBAName": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					bar := getBAR()
+					bar := testutils.GetBAR()
 					bar.Status.BucketAccessName = ""
-					_, _ = cosi.BucketAccessRequests(namespace).Create(ctx, bar, metav1.CreateOptions{})
+					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, bar, metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
 				bar: nil,
@@ -200,12 +100,12 @@ func TestGetBAR(t *testing.T) {
 		"FailNoBRName": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					bar := getBAR()
+					bar := testutils.GetBAR()
 					bar.Spec.BucketRequestName = ""
-					_, _ = cosi.BucketAccessRequests(namespace).Create(ctx, bar, metav1.CreateOptions{})
+					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, bar, metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
 				bar: nil,
@@ -254,19 +154,19 @@ func TestGetBA(t *testing.T) {
 		"Successful": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.BucketAccesses().Create(ctx, getBA(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
 				},
 				baName: "bucketAccessName",
 			},
 			want: want{
-				ba:  getBA(),
+				ba:  testutils.GetBA(),
 				err: nil,
 			},
 		},
 		"NotFound": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.BucketAccesses().Create(ctx, getBA(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
 				},
 				baName: "wrongName",
 			},
@@ -278,7 +178,7 @@ func TestGetBA(t *testing.T) {
 		"FailNoAccess": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					ba := getBA()
+					ba := testutils.GetBA()
 					ba.Status.AccessGranted = false
 					_, _ = cosi.BucketAccesses().Create(ctx, ba, metav1.CreateOptions{})
 				},
@@ -292,7 +192,7 @@ func TestGetBA(t *testing.T) {
 		"FailNoMintedSecretRef": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					ba := getBA()
+					ba := testutils.GetBA()
 					ba.Status.MintedSecret = nil
 					_, _ = cosi.BucketAccesses().Create(ctx, ba, metav1.CreateOptions{})
 				},
@@ -346,23 +246,23 @@ func TestGetBR(t *testing.T) {
 		"Successful": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.BucketRequests(namespace).Create(ctx, getBR(), metav1.CreateOptions{})
+					_, _ = cosi.BucketRequests(testutils.Namespace).Create(ctx, testutils.GetBR(), metav1.CreateOptions{})
 				},
 				brName: "bucketRequestName",
-				brNs:   namespace,
+				brNs:   testutils.Namespace,
 			},
 			want: want{
-				br:  getBR(),
+				br:  testutils.GetBR(),
 				err: nil,
 			},
 		},
 		"NotFound": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.BucketRequests(namespace).Create(ctx, getBR(), metav1.CreateOptions{})
+					_, _ = cosi.BucketRequests(testutils.Namespace).Create(ctx, testutils.GetBR(), metav1.CreateOptions{})
 				},
 				brName: "wrongName",
-				brNs:   namespace,
+				brNs:   testutils.Namespace,
 			},
 			want: want{
 				br:  nil,
@@ -372,12 +272,12 @@ func TestGetBR(t *testing.T) {
 		"FailNotAvailable": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					br := getBR()
+					br := testutils.GetBR()
 					br.Status.BucketAvailable = false
-					_, _ = cosi.BucketRequests(namespace).Create(ctx, br, metav1.CreateOptions{})
+					_, _ = cosi.BucketRequests(testutils.Namespace).Create(ctx, br, metav1.CreateOptions{})
 				},
 				brName: "bucketRequestName",
-				brNs:   namespace,
+				brNs:   testutils.Namespace,
 			},
 			want: want{
 				br:  nil,
@@ -387,12 +287,12 @@ func TestGetBR(t *testing.T) {
 		"FailNoBName": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					br := getBR()
+					br := testutils.GetBR()
 					br.Status.BucketName = ""
-					_, _ = cosi.BucketRequests(namespace).Create(ctx, br, metav1.CreateOptions{})
+					_, _ = cosi.BucketRequests(testutils.Namespace).Create(ctx, br, metav1.CreateOptions{})
 				},
 				brName: "bucketRequestName",
-				brNs:   namespace,
+				brNs:   testutils.Namespace,
 			},
 			want: want{
 				br:  nil,
@@ -441,19 +341,19 @@ func TestGetB(t *testing.T) {
 		"Successful": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.Buckets().Create(ctx, getB(), metav1.CreateOptions{})
+					_, _ = cosi.Buckets().Create(ctx, testutils.GetB(), metav1.CreateOptions{})
 				},
 				bName: "bucketName",
 			},
 			want: want{
-				b:   getB(),
+				b:   testutils.GetB(),
 				err: nil,
 			},
 		},
 		"NotFound": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.Buckets().Create(ctx, getB(), metav1.CreateOptions{})
+					_, _ = cosi.Buckets().Create(ctx, testutils.GetB(), metav1.CreateOptions{})
 				},
 				bName: "wrongName",
 			},
@@ -465,7 +365,7 @@ func TestGetB(t *testing.T) {
 		"FailNotAvailable": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					b := getB()
+					b := testutils.GetB()
 					b.Status.BucketAvailable = false
 					_, _ = cosi.Buckets().Create(ctx, b, metav1.CreateOptions{})
 				},
@@ -521,32 +421,32 @@ func TestGetResources(t *testing.T) {
 		"Successful": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.Buckets().Create(ctx, getB(), metav1.CreateOptions{})
-					_, _ = cosi.BucketAccessRequests(namespace).Create(ctx, getBAR(), metav1.CreateOptions{})
-					_, _ = cosi.BucketAccesses().Create(ctx, getBA(), metav1.CreateOptions{})
+					_, _ = cosi.Buckets().Create(ctx, testutils.GetB(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, testutils.GetBAR(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
 
-					_, _ = cs.CoreV1().Secrets(namespace).Create(ctx, getSecret(), metav1.CreateOptions{})
+					_, _ = cs.CoreV1().Secrets(testutils.Namespace).Create(ctx, testutils.GetSecret(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
-				b:      getB(),
-				ba:     getBA(),
-				secret: getSecret(),
+				b:      testutils.GetB(),
+				ba:     testutils.GetBA(),
+				secret: testutils.GetSecret(),
 				err:    nil,
 			},
 		},
 		"failedMissingBAR": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.Buckets().Create(ctx, getB(), metav1.CreateOptions{})
-					_, _ = cosi.BucketAccesses().Create(ctx, getBA(), metav1.CreateOptions{})
+					_, _ = cosi.Buckets().Create(ctx, testutils.GetB(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
 
-					_, _ = cs.CoreV1().Secrets(namespace).Create(ctx, getSecret(), metav1.CreateOptions{})
+					_, _ = cs.CoreV1().Secrets(testutils.Namespace).Create(ctx, testutils.GetSecret(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
 				err: errors.Wrap(fmt.Errorf("%s \"%s\" not found", "bucketaccessrequests.objectstorage.k8s.io", "bucketAccessRequestName"), util.WrapErrorGetBARFailed),
@@ -555,13 +455,13 @@ func TestGetResources(t *testing.T) {
 		"failedMissingBA": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.Buckets().Create(ctx, getB(), metav1.CreateOptions{})
-					_, _ = cosi.BucketAccessRequests(namespace).Create(ctx, getBAR(), metav1.CreateOptions{})
+					_, _ = cosi.Buckets().Create(ctx, testutils.GetB(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, testutils.GetBAR(), metav1.CreateOptions{})
 
-					_, _ = cs.CoreV1().Secrets(namespace).Create(ctx, getSecret(), metav1.CreateOptions{})
+					_, _ = cs.CoreV1().Secrets(testutils.Namespace).Create(ctx, testutils.GetSecret(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
 				err: errors.Wrap(fmt.Errorf("%s \"%s\" not found", "bucketaccesses.objectstorage.k8s.io", "bucketAccessName"), util.WrapErrorGetBAFailed),
@@ -570,32 +470,32 @@ func TestGetResources(t *testing.T) {
 		"failedMissingB": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.BucketAccessRequests(namespace).Create(ctx, getBAR(), metav1.CreateOptions{})
-					_, _ = cosi.BucketAccesses().Create(ctx, getBA(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, testutils.GetBAR(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
 
-					_, _ = cs.CoreV1().Secrets(namespace).Create(ctx, getSecret(), metav1.CreateOptions{})
+					_, _ = cs.CoreV1().Secrets(testutils.Namespace).Create(ctx, testutils.GetSecret(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
-				ba:  getBA(),
+				ba:  testutils.GetBA(),
 				err: errors.Wrap(fmt.Errorf("%s \"%s\" not found", "buckets.objectstorage.k8s.io", "bucketName"), util.WrapErrorGetBFailed),
 			},
 		},
 		"failedMissingSecret": {
 			args: args{
 				prepare: func(cs kubernetes.Interface, cosi cs.ObjectstorageV1alpha1Interface) {
-					_, _ = cosi.Buckets().Create(ctx, getB(), metav1.CreateOptions{})
-					_, _ = cosi.BucketAccessRequests(namespace).Create(ctx, getBAR(), metav1.CreateOptions{})
-					_, _ = cosi.BucketAccesses().Create(ctx, getBA(), metav1.CreateOptions{})
+					_, _ = cosi.Buckets().Create(ctx, testutils.GetB(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, testutils.GetBAR(), metav1.CreateOptions{})
+					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
-				barNs:   namespace,
+				barNs:   testutils.Namespace,
 			},
 			want: want{
-				b:   getB(),
-				ba:  getBA(),
+				b:   testutils.GetB(),
+				ba:  testutils.GetBA(),
 				err: errors.Wrap(fmt.Errorf("%s \"%s\" not found", "secrets", "mintedSecretName"), util.WrapErrorGetSecretFailed),
 			},
 		},
@@ -715,14 +615,10 @@ func TestGetProtocol(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			nc := &nodeClient{
-				kubeClient: k8sfake.NewSimpleClientset(),
-				cosiClient: cosifake.NewSimpleClientset().ObjectstorageV1alpha1(),
-			}
 
-			bkt := getB()
+			bkt := testutils.GetB()
 
-			data, err := nc.GetProtocol(tc.prepare(bkt))
+			data, err := GetProtocol(tc.prepare(bkt))
 
 			var wantData interface{}
 			var haveData interface{}

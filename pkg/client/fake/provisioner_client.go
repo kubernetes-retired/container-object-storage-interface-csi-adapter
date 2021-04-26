@@ -11,7 +11,7 @@ var _ client.ProvisionerClient = &MockProvisionerClient{}
 type MockProvisionerClient struct {
 	MockMkdirAll  func(path string, perm os.FileMode) error
 	MockRemoveAll func(path string) error
-	MockOpenFile  func(name string, flag int, perm os.FileMode) (*os.File, error)
+	MockWriteFile func(data []byte, filepath string) error
 }
 
 func (p MockProvisionerClient) MkdirAll(path string, perm os.FileMode) error {
@@ -22,6 +22,6 @@ func (p MockProvisionerClient) RemoveAll(path string) error {
 	return p.MockRemoveAll(path)
 }
 
-func (p MockProvisionerClient) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
-	return p.MockOpenFile(name, flag, perm)
+func (p MockProvisionerClient) WriteFile(data []byte, filepath string) error {
+	return p.MockWriteFile(data, filepath)
 }

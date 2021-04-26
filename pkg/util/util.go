@@ -3,6 +3,7 @@ package util
 import (
 	"encoding/json"
 	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -24,7 +25,7 @@ func ParseData(s *v1.Secret) ([]byte, error) {
 func ParseValue(key string, volCtx map[string]string) (string, error) {
 	value, ok := volCtx[key]
 	if !ok {
-		return "", fmt.Errorf("required volume context key unset: %v", key)
+		return "", fmt.Errorf(ErrorTemplateVolCtxUnset, key)
 	}
 	return value, nil
 }

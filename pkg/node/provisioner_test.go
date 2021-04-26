@@ -1,12 +1,12 @@
 package node
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
 	"k8s.io/mount-utils"
 
 	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/client"
@@ -81,6 +81,23 @@ func TestMountDir(t *testing.T) {
 			},
 			want: want{
 				err: errBoom,
+			},
+		},
+		"FailMountMkdirFailed": {
+			args: args{
+				mp: &mount.FakeMounter{
+					MountPoints: []mount.MountPoint{},
+				},
+				volId:      volumeId,
+				targetPath: targetPath,
+				rclient: &fake.MockProvisionerClient{
+					MockMkdirAll: func(path string, perm os.FileMode) error {
+						return errBoom
+					},
+				},
+			},
+			want: want{
+				err: errors.Wrap(errBoom, util.WrapErrorFailedToMkdirForMount),
 			},
 		},
 		"FailIsAlreadyMountPath": {

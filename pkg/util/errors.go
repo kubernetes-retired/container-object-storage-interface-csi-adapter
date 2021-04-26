@@ -11,6 +11,22 @@ const (
 	WrapErrorGetSecretFailed = "failed to get minted secret from bucketAccess"
 
 	WrapErrorMarshalProtocolFailed = "failed to marshal bucket protocol"
+
+	WrapErrorMkdirFailed              = "failed to mkdir for bucketPath on publish"
+	WrapErrorFailedToCreateVolumeFile = "failed to create file in ephemeral volume"
+	WrapErrorFailedToCreateBucketFile = "failed to create file in bucket mount folder"
+
+	WrapErrorFailedRemoveDirectory    = "failed to remove directory after error"
+	WrapErrorFailedToParseSecret      = "failed to parse secret"
+	WrapErrorFailedToWriteProtocol    = "failed to write protocolConnection to mount volume"
+	WrapErrorFailedToWriteCredentials = "failed to write credentials to mount volume"
+	WrapErrorFailedToMountVolume      = "failed to mount ephemeral volume to pod"
+
+	WrapErrorFailedToAddFinalizer    = "failed to add finalizer to bucketAccess"
+	WrapErrorFailedToMarshalMetadata = "failed to marshal Metadata struct"
+	WrapErrorFailedToWriteMetadata   = "failed to write metadata to disk"
+
+	WrapErrorFailedToMkdirForMount = "failed to mkdir when mounting bucket"
 )
 
 var (
@@ -27,4 +43,8 @@ var (
 	ErrorBNotAvailable = errors.New("bucket is not available yet")
 
 	ErrorInvalidProtocol = errors.New("unrecognized protocol, unable to extract connection data")
+)
+
+var (
+	ErrorTemplateVolCtxUnset = "required volume context key unset: %v"
 )

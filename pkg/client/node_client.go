@@ -20,11 +20,11 @@ import (
 )
 
 const (
-	podNameKey      = "csi.storage.k8s.io/pod.name"
-	podNamespaceKey = "csi.storage.k8s.io/pod.namespace"
+	PodNameKey      = "csi.storage.k8s.io/pod.name"
+	PodNamespaceKey = "csi.storage.k8s.io/pod.namespace"
 
-	barNameKey      = "bar-name"
-	barNamespaceKey = "bar-namespace"
+	BarNameKey      = "bar-name"
+	BarNamespaceKey = "bar-namespace"
 )
 
 var _ NodeClient = &nodeClient{}
@@ -41,7 +41,6 @@ type NodeClient interface {
 	GetB(ctx context.Context, bName string) (*v1alpha1.Bucket, error)
 
 	GetResources(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error)
-	GetProtocol(bkt *v1alpha1.Bucket) (data []byte, err error)
 
 	AddBAFinalizer(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error
 	RemoveBAFinalizer(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error
@@ -63,17 +62,18 @@ func NewClientOrDie() NodeClient {
 
 func ParseVolumeContext(volCtx map[string]string) (barname, barns, podname, podns string, err error) {
 	klog.Info("parsing bucketAccessRequest namespace/name from volume context")
-	if barname, err = util.ParseValue(barNameKey, volCtx); err != nil {
-		return "", "", "", "", err
+
+	if barname, err = util.ParseValue(BarNameKey, volCtx); err != nil {
+		return
 	}
-	if barns, err = util.ParseValue(barNamespaceKey, volCtx); err != nil {
-		return "", "", "", "", err
+	if barns, err = util.ParseValue(BarNamespaceKey, volCtx); err != nil {
+		return
 	}
-	if podname, err = util.ParseValue(podNameKey, volCtx); err != nil {
-		return "", "", "", "", err
+	if podname, err = util.ParseValue(PodNameKey, volCtx); err != nil {
+		return
 	}
-	if podns, err = util.ParseValue(podNamespaceKey, volCtx); err != nil {
-		return "", "", "", "", err
+	if podns, err = util.ParseValue(PodNamespaceKey, volCtx); err != nil {
+		return
 	}
 	return barname, barns, podname, podns, nil
 }
@@ -162,7 +162,7 @@ func (n *nodeClient) GetResources(ctx context.Context, barName, barNs string) (b
 	return
 }
 
-func (n *nodeClient) GetProtocol(bkt *v1alpha1.Bucket) ([]byte, error) {
+func GetProtocol(bkt *v1alpha1.Bucket) ([]byte, error) {
 	klog.Infof("bucket protocol %+v", bkt.Spec.Protocol)
 	var (
 		data               []byte
