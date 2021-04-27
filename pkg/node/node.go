@@ -123,23 +123,18 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 
 	data, err := n.provisioner.readFileFromVolume(request.GetVolumeId(), metadataFilename)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, errors.Wrap(err, util.WrapErrorFailedToReadMetadataFile).Error())
 	}
 
 	meta := Metadata{}
 	err = json.Unmarshal(data, &meta)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, errors.Wrap(err, util.WrapErrorFailedToUnmarshalMetadata).Error())
 	}
 
 	klog.InfoS("read metadata file", "metadata", meta)
 
 	ba, err := n.cosiClient.GetBA(ctx, meta.BaName)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	err = n.cosiClient.RemoveBAFinalizer(ctx, ba, meta.finalizer())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -151,7 +146,12 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 
 	err = n.provisioner.removeDir(request.GetVolumeId())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Publish Volume Failed: %v", err)
+		return nil, status.Error(codes.Internal, errors.Wrap(err, util.WrapErrorFailedToRemoveDir).Error())
+	}
+
+	err = n.cosiClient.RemoveBAFinalizer(ctx, ba, meta.finalizer())
+	if err != nil {
+		return nil, status.Error(codes.Internal, errors.Wrap(err, util.WrapErrorFailedToRemoveFinalizer).Error())
 	}
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil

@@ -25,8 +25,16 @@ const (
 	WrapErrorFailedToAddFinalizer    = "failed to add finalizer to bucketAccess"
 	WrapErrorFailedToMarshalMetadata = "failed to marshal Metadata struct"
 	WrapErrorFailedToWriteMetadata   = "failed to write metadata to disk"
+	WrapErrorFailedToMkdirForMount   = "failed to mkdir when mounting bucket"
 
-	WrapErrorFailedToMkdirForMount = "failed to mkdir when mounting bucket"
+	WrapErrorFailedToReadMetadataFile  = "failed to read metadata file from volume"
+	WrapErrorFailedToUnmarshalMetadata = "failed unable to unmarshal metadata from volume"
+	WrapErrorFailedToRemoveFinalizer   = "failed to remove finalizer from bucketAccess"
+	WrapErrorFailedToUnmountVolume     = "failed to unmount and clean volume"
+	WrapErrorFailedToRemoveDir         = "failed to remove directory"
+
+	WrapErrorCreatingFile  = "error when creating file"
+	WrapErrorWritingToFile = "error when writing file"
 )
 
 var (
@@ -46,5 +54,7 @@ var (
 )
 
 var (
-	ErrorTemplateVolCtxUnset = "required volume context key unset: %v"
+	ErrorTemplateVolCtxUnset          = "required volume context key unset: %v"
+	ErrorTemplateVolumeAlreadyMounted = "%s is already mounted"
+	ErrorTemplateMountFailed          = "failed to mount device: %s at %s"
 )

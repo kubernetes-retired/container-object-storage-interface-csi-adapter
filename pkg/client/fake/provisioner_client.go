@@ -12,6 +12,11 @@ type MockProvisionerClient struct {
 	MockMkdirAll  func(path string, perm os.FileMode) error
 	MockRemoveAll func(path string) error
 	MockWriteFile func(data []byte, filepath string) error
+	MockReadFile  func(filename string) ([]byte, error)
+}
+
+func (p MockProvisionerClient) ReadFile(filename string) ([]byte, error) {
+	return p.MockReadFile(filename)
 }
 
 func (p MockProvisionerClient) MkdirAll(path string, perm os.FileMode) error {

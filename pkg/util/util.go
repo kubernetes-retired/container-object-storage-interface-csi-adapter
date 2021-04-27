@@ -8,8 +8,6 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var GetError = func(t, n string, e error) error { return fmt.Errorf("failed to get <%s>%s: %v", t, n, e) }
-
 func ParseData(s *v1.Secret) ([]byte, error) {
 	output := make(map[string]string)
 	for key, value := range s.Data {

@@ -13,7 +13,7 @@ allowedNamespaces:
 protocol:
   s3:
     bucketName: samplebucket
-    endpoint: minio.chowdhary.ca
+    endpoint: minio
     region: us-east-1
     signatureVersion: S3V4
 deletionPolicy: Delete

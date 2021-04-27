@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,6 +65,13 @@ func withErrorMap(errMap map[string]error) ProvisionerModifier {
 	}
 }
 
+func withMountPoints(mps []mount.MountPoint) ProvisionerModifier {
+	return func(provisioner *Provisioner) {
+		fm := provisioner.mounter.(*mount.FakeMounter)
+		fm.MountPoints = mps
+	}
+}
+
 func TestNodePublishVolume(t *testing.T) {
 	type args struct {
 		nclient     *fake.FakeNodeClient
@@ -97,8 +105,8 @@ func TestNodePublishVolume(t *testing.T) {
 				),
 				nclient: &fake.FakeNodeClient{
 					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
-						tempBa := testutils.GetBAR()
-						if tempBa.Namespace == barNs && tempBa.Name == barName {
+						tempBar := testutils.GetBAR()
+						if tempBar.Namespace == barNs && tempBar.Name == barName {
 							ba = testutils.GetBA()
 							bkt = testutils.GetB()
 							secret = testutils.GetSecret()
@@ -470,6 +478,265 @@ func TestNodePublishVolume(t *testing.T) {
 			}
 
 			response, err := ns.NodePublishVolume(ctx, tc.request)
+
+			if diff := cmp.Diff(tc.want.response, response); diff != "" {
+				t.Errorf("r: -want, +got:\n%s", diff)
+			}
+
+			if diff := cmp.Diff(tc.want.err, err, util.EquateErrors()); diff != "" {
+				t.Errorf("r: -want, +got:\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestNodeUnpublishVolume(t *testing.T) {
+	type args struct {
+		nclient     *fake.FakeNodeClient
+		provisioner Provisioner
+		request     *csi.NodeUnpublishVolumeRequest
+	}
+
+	type want struct {
+		response *csi.NodeUnpublishVolumeResponse
+		err      error
+	}
+
+	cases := map[string]struct {
+		args
+		want
+	}{
+		"Successful": {
+			args: args{
+				provisioner: getTestProvisioner(
+					&fake.MockProvisionerClient{
+						MockRemoveAll: func(path string) error {
+							return nil
+						},
+						MockReadFile: func(filename string) ([]byte, error) {
+							meta := Metadata{
+								BaName:       "bucketAccessName",
+								PodName:      podName,
+								PodNamespace: testutils.Namespace,
+							}
+							return json.Marshal(meta)
+						},
+					}, withMountPoints([]mount.MountPoint{
+						{
+							Path: provTargetPath,
+						},
+					}),
+				),
+				nclient: &fake.FakeNodeClient{
+					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+						tempBa := testutils.GetBA()
+						if tempBa.Name == baName {
+							return tempBa, nil
+						}
+						return nil, errBoom
+					},
+					MockRemoveBAFinalizer: func(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error {
+						return nil
+					},
+				},
+				request: &csi.NodeUnpublishVolumeRequest{
+					VolumeId:   provVolumeId,
+					TargetPath: provTargetPath,
+				},
+			},
+			want: want{
+				response: &csi.NodeUnpublishVolumeResponse{},
+				err:      nil,
+			},
+		},
+		"FailedToReadFile": {
+			args: args{
+				provisioner: getTestProvisioner(
+					&fake.MockProvisionerClient{
+						MockReadFile: func(filename string) ([]byte, error) {
+							return nil, errBoom
+						},
+					},
+				),
+				nclient: &fake.FakeNodeClient{},
+				request: &csi.NodeUnpublishVolumeRequest{
+					VolumeId:   provVolumeId,
+					TargetPath: provTargetPath,
+				},
+			},
+			want: want{
+				response: nil,
+				err:      genRPCError(codes.Internal, errors.Wrap(errBoom, util.WrapErrorFailedToReadMetadataFile)),
+			},
+		},
+		"FailedToUnmarshalMetadataFile": {
+			args: args{
+				provisioner: getTestProvisioner(
+					&fake.MockProvisionerClient{
+						MockReadFile: func(filename string) ([]byte, error) {
+							s := "{"
+							return []byte(s), nil
+						},
+					},
+				),
+				nclient: &fake.FakeNodeClient{},
+				request: &csi.NodeUnpublishVolumeRequest{
+					VolumeId:   provVolumeId,
+					TargetPath: provTargetPath,
+				},
+			},
+			want: want{
+				response: nil,
+				err:      genRPCError(codes.Internal, errors.Wrap(errors.New("unexpected end of JSON input"), util.WrapErrorFailedToUnmarshalMetadata)),
+			},
+		},
+		"FailedToGetBA": {
+			args: args{
+				provisioner: getTestProvisioner(
+					&fake.MockProvisionerClient{
+						MockReadFile: func(filename string) ([]byte, error) {
+							meta := Metadata{
+								BaName:       "wrongName",
+								PodName:      podName,
+								PodNamespace: testutils.Namespace,
+							}
+							return json.Marshal(meta)
+						},
+					},
+				),
+				nclient: &fake.FakeNodeClient{
+					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+						tempBa := testutils.GetBA()
+						if tempBa.Name == baName {
+							return tempBa, nil
+						}
+						return nil, errBoom
+					},
+				},
+				request: &csi.NodeUnpublishVolumeRequest{
+					VolumeId:   provVolumeId,
+					TargetPath: provTargetPath,
+				},
+			},
+			want: want{
+				response: nil,
+				err:      genRPCError(codes.Internal, errBoom),
+			},
+		},
+		"FailedToRemoveMount": {
+			args: args{
+				provisioner: getTestProvisioner(
+					&fake.MockProvisionerClient{
+						MockRemoveAll: func(path string) error {
+							return nil
+						},
+						MockReadFile: func(filename string) ([]byte, error) {
+							meta := Metadata{
+								BaName:       "bucketAccessName",
+								PodName:      podName,
+								PodNamespace: testutils.Namespace,
+							}
+							return json.Marshal(meta)
+						},
+					}, withErrorMap(map[string]error{
+						"/var/lib": errBoom,
+					}),
+				),
+				nclient: &fake.FakeNodeClient{
+					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+						return testutils.GetBA(), nil
+					},
+				},
+				request: &csi.NodeUnpublishVolumeRequest{
+					VolumeId:   provVolumeId,
+					TargetPath: "/var/lib",
+				},
+			},
+			want: want{
+				response: nil,
+				err:      genRPCError(codes.Internal, errors.Wrap(errBoom, util.WrapErrorFailedToUnmountVolume)),
+			},
+		},
+		"FailedToRemoveDir": {
+			args: args{
+				provisioner: getTestProvisioner(
+					&fake.MockProvisionerClient{
+						MockRemoveAll: func(path string) error {
+							return errBoom
+						},
+						MockReadFile: func(filename string) ([]byte, error) {
+							meta := Metadata{
+								BaName:       "bucketAccessName",
+								PodName:      podName,
+								PodNamespace: testutils.Namespace,
+							}
+							return json.Marshal(meta)
+						},
+					},
+				),
+				nclient: &fake.FakeNodeClient{
+					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+						return testutils.GetBA(), nil
+					},
+				},
+				request: &csi.NodeUnpublishVolumeRequest{
+					VolumeId:   provVolumeId,
+					TargetPath: provTargetPath,
+				},
+			},
+			want: want{
+				response: nil,
+				err:      genRPCError(codes.Internal, errors.Wrap(errBoom, util.WrapErrorFailedToRemoveDir)),
+			},
+		},
+		"FailedToRemoveFinalizer": {
+			args: args{
+				provisioner: getTestProvisioner(
+					&fake.MockProvisionerClient{
+						MockRemoveAll: func(path string) error {
+							return nil
+						},
+						MockReadFile: func(filename string) ([]byte, error) {
+							meta := Metadata{
+								BaName:       "bucketAccessName",
+								PodName:      podName,
+								PodNamespace: testutils.Namespace,
+							}
+							return json.Marshal(meta)
+						},
+					},
+				),
+				nclient: &fake.FakeNodeClient{
+					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+						return testutils.GetBA(), nil
+					},
+					MockRemoveBAFinalizer: func(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error {
+						return errBoom
+					},
+				},
+				request: &csi.NodeUnpublishVolumeRequest{
+					VolumeId:   provVolumeId,
+					TargetPath: provTargetPath,
+				},
+			},
+			want: want{
+				response: nil,
+				err:      genRPCError(codes.Internal, errors.Wrap(errBoom, util.WrapErrorFailedToRemoveFinalizer)),
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			ns := &NodeServer{
+				name:        name,
+				nodeID:      nodeId,
+				cosiClient:  tc.nclient,
+				provisioner: tc.provisioner,
+				volumeLimit: volLimit,
+			}
+
+			response, err := ns.NodeUnpublishVolume(ctx, tc.request)
 
 			if diff := cmp.Diff(tc.want.response, response); diff != "" {
 				t.Errorf("r: -want, +got:\n%s", diff)

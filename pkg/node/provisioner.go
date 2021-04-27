@@ -2,14 +2,11 @@ package node
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/util"
 
 	"github.com/pkg/errors"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 	"k8s.io/mount-utils"
 
@@ -72,11 +69,11 @@ func (p Provisioner) mountDir(volID, targetPath string) error {
 	}
 
 	if !notMnt {
-		return fmt.Errorf("%s is already mounted", targetPath)
+		return fmt.Errorf(util.ErrorTemplateVolumeAlreadyMounted, targetPath)
 	}
 
 	if err := p.mounter.Mount(p.bucketPath(volID), targetPath, "", []string{"bind"}); err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to mount device: %s at %s", p.bucketPath(volID), targetPath))
+		return errors.Wrap(err, fmt.Sprintf(util.ErrorTemplateMountFailed, p.bucketPath(volID), targetPath))
 	}
 	return nil
 }
@@ -98,14 +95,14 @@ func (p Provisioner) writeFileToVolume(data []byte, volID, fileName string) erro
 }
 
 func (p Provisioner) readFileFromVolume(volID, fileName string) ([]byte, error) {
-	return ioutil.ReadFile(filepath.Join(p.volPath(volID), fileName))
+	return p.pclient.ReadFile(filepath.Join(p.volPath(volID), fileName))
 }
 
 func (p Provisioner) removeMount(path string) error {
 	err := mount.CleanupMountPoint(path, p.mounter, true)
 	if err != nil && !os.IsNotExist(err) {
-		klog.Error(err, "failed to clean and unmount target path", "targetPath", path)
-		return status.Error(codes.Internal, err.Error())
+		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", path)
+		return errors.Wrap(err, util.WrapErrorFailedToUnmountVolume)
 	}
 	return nil
 }
