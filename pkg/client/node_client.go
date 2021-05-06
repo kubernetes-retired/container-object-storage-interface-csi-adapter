@@ -23,8 +23,7 @@ const (
 	PodNameKey      = "csi.storage.k8s.io/pod.name"
 	PodNamespaceKey = "csi.storage.k8s.io/pod.namespace"
 
-	BarNameKey      = "bar-name"
-	BarNamespaceKey = "bar-namespace"
+	BarNameKey = "bar-name"
 )
 
 var _ NodeClient = &nodeClient{}
@@ -40,7 +39,7 @@ type NodeClient interface {
 	GetBR(ctx context.Context, brName, brNs string) (*v1alpha1.BucketRequest, error)
 	GetB(ctx context.Context, bName string) (*v1alpha1.Bucket, error)
 
-	GetResources(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error)
+	GetResources(ctx context.Context, barName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error)
 
 	AddBAFinalizer(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error
 	RemoveBAFinalizer(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error
@@ -60,13 +59,10 @@ func NewClientOrDie() NodeClient {
 	}
 }
 
-func ParseVolumeContext(volCtx map[string]string) (barname, barns, podname, podns string, err error) {
+func ParseVolumeContext(volCtx map[string]string) (barname, podname, podns string, err error) {
 	klog.Info("parsing bucketAccessRequest namespace/name from volume context")
 
 	if barname, err = util.ParseValue(BarNameKey, volCtx); err != nil {
-		return
-	}
-	if barns, err = util.ParseValue(BarNamespaceKey, volCtx); err != nil {
 		return
 	}
 	if podname, err = util.ParseValue(PodNameKey, volCtx); err != nil {
@@ -75,7 +71,7 @@ func ParseVolumeContext(volCtx map[string]string) (barname, barns, podname, podn
 	if podns, err = util.ParseValue(PodNamespaceKey, volCtx); err != nil {
 		return
 	}
-	return barname, barns, podname, podns, nil
+	return barname, podname, podns, nil
 }
 
 func (n *nodeClient) GetBAR(ctx context.Context, barName, barNs string) (*v1alpha1.BucketAccessRequest, error) {
@@ -140,10 +136,10 @@ func (n *nodeClient) GetB(ctx context.Context, bName string) (*v1alpha1.Bucket, 
 	return bkt, nil
 }
 
-func (n *nodeClient) GetResources(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+func (n *nodeClient) GetResources(ctx context.Context, barName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
 	var bar *v1alpha1.BucketAccessRequest
 
-	if bar, err = n.GetBAR(ctx, barName, barNs); err != nil {
+	if bar, err = n.GetBAR(ctx, barName, podNs); err != nil {
 		return
 	}
 

@@ -47,12 +47,12 @@ type NodeServer struct {
 func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	klog.Infof("NodePublishVolume: volId: %v, targetPath: %v\n", request.GetVolumeId(), request.GetTargetPath())
 
-	barName, barNs, podName, podNs, err := client.ParseVolumeContext(request.GetVolumeContext())
+	barName, podName, podNs, err := client.ParseVolumeContext(request.GetVolumeContext())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	bkt, ba, secret, err := n.cosiClient.GetResources(ctx, barName, barNs)
+	bkt, ba, secret, err := n.cosiClient.GetResources(ctx, barName, podNs)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}

@@ -120,7 +120,6 @@ func TestNodePublishVolume(t *testing.T) {
 				request: &csi.NodePublishVolumeRequest{
 					VolumeContext: map[string]string{
 						client.BarNameKey:      testutils.GetBAR().Name,
-						client.BarNamespaceKey: testutils.Namespace,
 						client.PodNameKey:      podName,
 						client.PodNamespaceKey: testutils.Namespace,
 					},
@@ -170,8 +169,8 @@ func TestNodePublishVolume(t *testing.T) {
 				},
 				request: &csi.NodePublishVolumeRequest{
 					VolumeContext: map[string]string{
-						client.BarNameKey:      testutils.GetBAR().Name,
-						client.BarNamespaceKey: testutils.Namespace,
+						client.BarNameKey: testutils.GetBAR().Name,
+
 						client.PodNameKey:      podName,
 						client.PodNamespaceKey: testutils.Namespace,
 					},
@@ -204,7 +203,6 @@ func TestNodePublishVolume(t *testing.T) {
 				request: &csi.NodePublishVolumeRequest{
 					VolumeContext: map[string]string{
 						client.BarNameKey:      testutils.GetBAR().Name,
-						client.BarNamespaceKey: testutils.Namespace,
 						client.PodNameKey:      podName,
 						client.PodNamespaceKey: testutils.Namespace,
 					},
@@ -243,7 +241,6 @@ func TestNodePublishVolume(t *testing.T) {
 				request: &csi.NodePublishVolumeRequest{
 					VolumeContext: map[string]string{
 						client.BarNameKey:      testutils.GetBAR().Name,
-						client.BarNamespaceKey: testutils.Namespace,
 						client.PodNameKey:      podName,
 						client.PodNamespaceKey: testutils.Namespace,
 					},
@@ -282,7 +279,6 @@ func TestNodePublishVolume(t *testing.T) {
 				request: &csi.NodePublishVolumeRequest{
 					VolumeContext: map[string]string{
 						client.BarNameKey:      testutils.GetBAR().Name,
-						client.BarNamespaceKey: testutils.Namespace,
 						client.PodNameKey:      podName,
 						client.PodNamespaceKey: testutils.Namespace,
 					},
@@ -324,7 +320,6 @@ func TestNodePublishVolume(t *testing.T) {
 				request: &csi.NodePublishVolumeRequest{
 					VolumeContext: map[string]string{
 						client.BarNameKey:      testutils.GetBAR().Name,
-						client.BarNamespaceKey: testutils.Namespace,
 						client.PodNameKey:      podName,
 						client.PodNamespaceKey: testutils.Namespace,
 					},
@@ -365,7 +360,6 @@ func TestNodePublishVolume(t *testing.T) {
 				request: &csi.NodePublishVolumeRequest{
 					VolumeContext: map[string]string{
 						client.BarNameKey:      testutils.GetBAR().Name,
-						client.BarNamespaceKey: testutils.Namespace,
 						client.PodNameKey:      podName,
 						client.PodNamespaceKey: testutils.Namespace,
 					},
@@ -407,7 +401,6 @@ func TestNodePublishVolume(t *testing.T) {
 				request: &csi.NodePublishVolumeRequest{
 					VolumeContext: map[string]string{
 						client.BarNameKey:      testutils.GetBAR().Name,
-						client.BarNamespaceKey: testutils.Namespace,
 						client.PodNameKey:      podName,
 						client.PodNamespaceKey: testutils.Namespace,
 					},
@@ -452,7 +445,6 @@ func TestNodePublishVolume(t *testing.T) {
 				request: &csi.NodePublishVolumeRequest{
 					VolumeContext: map[string]string{
 						client.BarNameKey:      testutils.GetBAR().Name,
-						client.BarNamespaceKey: testutils.Namespace,
 						client.PodNameKey:      podName,
 						client.PodNamespaceKey: testutils.Namespace,
 					},
