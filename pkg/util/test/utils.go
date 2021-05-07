@@ -11,6 +11,15 @@ const (
 	Namespace = "test"
 )
 
+func GetPod() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "podName",
+			Namespace: Namespace,
+		},
+	}
+}
+
 func GetBAR() *v1alpha1.BucketAccessRequest {
 	return &v1alpha1.BucketAccessRequest{
 		ObjectMeta: metav1.ObjectMeta{

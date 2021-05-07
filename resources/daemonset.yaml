@@ -85,7 +85,6 @@ spec:
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
-                  apiVersion: v1
                   fieldPath: spec.nodeName
           volumeMounts:
           - mountPath: /csi
@@ -112,7 +111,6 @@ spec:
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
-                  apiVersion: v1
                   fieldPath: spec.nodeName
             - name: DATA_PATH
               value: /cosi-secret-dir

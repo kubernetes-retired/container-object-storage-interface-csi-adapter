@@ -104,14 +104,14 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+					MockGetResources: func(ctx context.Context, barName, podName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, pod *v1.Pod, err error) {
 						tempBar := testutils.GetBAR()
-						if tempBar.Namespace == barNs && tempBar.Name == barName {
+						if tempBar.Namespace == podNs && tempBar.Name == barName {
 							ba = testutils.GetBA()
 							bkt = testutils.GetB()
 							secret = testutils.GetSecret()
 						}
-						return bkt, ba, secret, nil
+						return bkt, ba, secret, testutils.GetPod(), nil
 					},
 					MockAddBAFinalizer: func(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error {
 						return nil
@@ -158,7 +158,7 @@ func TestNodePublishVolume(t *testing.T) {
 					&fake.MockProvisionerClient{},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+					MockGetResources: func(ctx context.Context, barName, podName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, pod *v1.Pod, err error) {
 						bkt = testutils.GetB(
 							testutils.WithProtocol(v1alpha1.Protocol{}),
 						)
@@ -193,7 +193,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+					MockGetResources: func(ctx context.Context, barName, podName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, pod *v1.Pod, err error) {
 						bkt = testutils.GetB()
 						ba = testutils.GetBA()
 						secret = testutils.GetSecret()
@@ -231,7 +231,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+					MockGetResources: func(ctx context.Context, barName, podName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, pod *v1.Pod, err error) {
 						bkt = testutils.GetB()
 						ba = testutils.GetBA()
 						secret = testutils.GetSecret()
@@ -269,7 +269,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+					MockGetResources: func(ctx context.Context, barName, podName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, pod *v1.Pod, err error) {
 						bkt = testutils.GetB()
 						ba = testutils.GetBA()
 						secret = testutils.GetSecret()
@@ -310,7 +310,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+					MockGetResources: func(ctx context.Context, barName, podName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, pod *v1.Pod, err error) {
 						bkt = testutils.GetB()
 						ba = testutils.GetBA()
 						secret = testutils.GetSecret()
@@ -350,7 +350,7 @@ func TestNodePublishVolume(t *testing.T) {
 					}),
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+					MockGetResources: func(ctx context.Context, barName, podName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, pod *v1.Pod, err error) {
 						bkt = testutils.GetB()
 						ba = testutils.GetBA()
 						secret = testutils.GetSecret()
@@ -388,7 +388,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+					MockGetResources: func(ctx context.Context, barName, podName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, pod *v1.Pod, err error) {
 						bkt = testutils.GetB()
 						ba = testutils.GetBA()
 						secret = testutils.GetSecret()
@@ -432,7 +432,7 @@ func TestNodePublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetResources: func(ctx context.Context, barName, barNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, err error) {
+					MockGetResources: func(ctx context.Context, barName, podName, podNs string) (bkt *v1alpha1.Bucket, ba *v1alpha1.BucketAccess, secret *v1.Secret, pod *v1.Pod, err error) {
 						bkt = testutils.GetB()
 						ba = testutils.GetBA()
 						secret = testutils.GetSecret()
@@ -520,7 +520,7 @@ func TestNodeUnpublishVolume(t *testing.T) {
 					}),
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+					MockGetBA: func(ctx context.Context, pod *v1.Pod, baName string) (*v1alpha1.BucketAccess, error) {
 						tempBa := testutils.GetBA()
 						if tempBa.Name == baName {
 							return tempBa, nil
@@ -529,6 +529,9 @@ func TestNodeUnpublishVolume(t *testing.T) {
 					},
 					MockRemoveBAFinalizer: func(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error {
 						return nil
+					},
+					MockGetPod: func(ctx context.Context, podName, podNs string) (*v1.Pod, error) {
+						return testutils.GetPod(), nil
 					},
 				},
 				request: &csi.NodeUnpublishVolumeRequest{
@@ -597,12 +600,15 @@ func TestNodeUnpublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+					MockGetBA: func(ctx context.Context, pod *v1.Pod, baName string) (*v1alpha1.BucketAccess, error) {
 						tempBa := testutils.GetBA()
 						if tempBa.Name == baName {
 							return tempBa, nil
 						}
 						return nil, errBoom
+					},
+					MockGetPod: func(ctx context.Context, podName, podNs string) (*v1.Pod, error) {
+						return testutils.GetPod(), nil
 					},
 				},
 				request: &csi.NodeUnpublishVolumeRequest{
@@ -635,8 +641,11 @@ func TestNodeUnpublishVolume(t *testing.T) {
 					}),
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+					MockGetBA: func(ctx context.Context, pod *v1.Pod, baName string) (*v1alpha1.BucketAccess, error) {
 						return testutils.GetBA(), nil
+					},
+					MockGetPod: func(ctx context.Context, podName, podNs string) (*v1.Pod, error) {
+						return testutils.GetPod(), nil
 					},
 				},
 				request: &csi.NodeUnpublishVolumeRequest{
@@ -667,8 +676,11 @@ func TestNodeUnpublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+					MockGetBA: func(ctx context.Context, pod *v1.Pod, baName string) (*v1alpha1.BucketAccess, error) {
 						return testutils.GetBA(), nil
+					},
+					MockGetPod: func(ctx context.Context, podName, podNs string) (*v1.Pod, error) {
+						return testutils.GetPod(), nil
 					},
 				},
 				request: &csi.NodeUnpublishVolumeRequest{
@@ -699,11 +711,14 @@ func TestNodeUnpublishVolume(t *testing.T) {
 					},
 				),
 				nclient: &fake.FakeNodeClient{
-					MockGetBA: func(ctx context.Context, baName string) (*v1alpha1.BucketAccess, error) {
+					MockGetBA: func(ctx context.Context, pod *v1.Pod, baName string) (*v1alpha1.BucketAccess, error) {
 						return testutils.GetBA(), nil
 					},
 					MockRemoveBAFinalizer: func(ctx context.Context, ba *v1alpha1.BucketAccess, BAFinalizer string) error {
 						return errBoom
+					},
+					MockGetPod: func(ctx context.Context, podName, podNs string) (*v1.Pod, error) {
+						return testutils.GetPod(), nil
 					},
 				},
 				request: &csi.NodeUnpublishVolumeRequest{

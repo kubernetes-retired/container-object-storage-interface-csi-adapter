@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/client-go/tools/record"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -119,11 +120,12 @@ func TestGetBAR(t *testing.T) {
 			nc := &nodeClient{
 				kubeClient: k8sfake.NewSimpleClientset(),
 				cosiClient: cosifake.NewSimpleClientset().ObjectstorageV1alpha1(),
+				recorder:   record.NewFakeRecorder(10),
 			}
 
 			tc.prepare(nc.kubeClient, nc.cosiClient)
 
-			bar, err := nc.GetBAR(ctx, tc.barName, tc.barNs)
+			bar, err := nc.GetBAR(ctx, testutils.GetPod(), tc.barName, tc.barNs)
 
 			if diff := cmp.Diff(tc.want.bar, bar); diff != "" {
 				t.Errorf("r: -want, +got:\n%s", diff)
@@ -210,11 +212,12 @@ func TestGetBA(t *testing.T) {
 			nc := &nodeClient{
 				kubeClient: k8sfake.NewSimpleClientset(),
 				cosiClient: cosifake.NewSimpleClientset().ObjectstorageV1alpha1(),
+				recorder:   record.NewFakeRecorder(10),
 			}
 
 			tc.prepare(nc.kubeClient, nc.cosiClient)
 
-			ba, err := nc.GetBA(ctx, tc.baName)
+			ba, err := nc.GetBA(ctx, testutils.GetPod(), tc.baName)
 
 			if diff := cmp.Diff(tc.want.ba, ba); diff != "" {
 				t.Errorf("r: -want, +got:\n%s", diff)
@@ -306,11 +309,12 @@ func TestGetBR(t *testing.T) {
 			nc := &nodeClient{
 				kubeClient: k8sfake.NewSimpleClientset(),
 				cosiClient: cosifake.NewSimpleClientset().ObjectstorageV1alpha1(),
+				recorder:   record.NewFakeRecorder(10),
 			}
 
 			tc.prepare(nc.kubeClient, nc.cosiClient)
 
-			br, err := nc.GetBR(ctx, tc.brName, tc.brNs)
+			br, err := nc.GetBR(ctx, testutils.GetPod(), tc.brName, tc.brNs)
 
 			if diff := cmp.Diff(tc.want.br, br); diff != "" {
 				t.Errorf("r: -want, +got:\n%s", diff)
@@ -383,11 +387,12 @@ func TestGetB(t *testing.T) {
 			nc := &nodeClient{
 				kubeClient: k8sfake.NewSimpleClientset(),
 				cosiClient: cosifake.NewSimpleClientset().ObjectstorageV1alpha1(),
+				recorder:   record.NewFakeRecorder(10),
 			}
 
 			tc.prepare(nc.kubeClient, nc.cosiClient)
 
-			b, err := nc.GetB(ctx, tc.bName)
+			b, err := nc.GetB(ctx, testutils.GetPod(), tc.bName)
 
 			if diff := cmp.Diff(tc.want.b, b); diff != "" {
 				t.Errorf("r: -want, +got:\n%s", diff)
@@ -426,6 +431,8 @@ func TestGetResources(t *testing.T) {
 					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
 
 					_, _ = cs.CoreV1().Secrets(testutils.Namespace).Create(ctx, testutils.GetSecret(), metav1.CreateOptions{})
+
+					_, _ = cs.CoreV1().Pods(testutils.Namespace).Create(ctx, testutils.GetPod(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
 				barNs:   testutils.Namespace,
@@ -444,6 +451,7 @@ func TestGetResources(t *testing.T) {
 					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
 
 					_, _ = cs.CoreV1().Secrets(testutils.Namespace).Create(ctx, testutils.GetSecret(), metav1.CreateOptions{})
+					_, _ = cs.CoreV1().Pods(testutils.Namespace).Create(ctx, testutils.GetPod(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
 				barNs:   testutils.Namespace,
@@ -459,6 +467,7 @@ func TestGetResources(t *testing.T) {
 					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, testutils.GetBAR(), metav1.CreateOptions{})
 
 					_, _ = cs.CoreV1().Secrets(testutils.Namespace).Create(ctx, testutils.GetSecret(), metav1.CreateOptions{})
+					_, _ = cs.CoreV1().Pods(testutils.Namespace).Create(ctx, testutils.GetPod(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
 				barNs:   testutils.Namespace,
@@ -474,6 +483,7 @@ func TestGetResources(t *testing.T) {
 					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
 
 					_, _ = cs.CoreV1().Secrets(testutils.Namespace).Create(ctx, testutils.GetSecret(), metav1.CreateOptions{})
+					_, _ = cs.CoreV1().Pods(testutils.Namespace).Create(ctx, testutils.GetPod(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
 				barNs:   testutils.Namespace,
@@ -489,6 +499,7 @@ func TestGetResources(t *testing.T) {
 					_, _ = cosi.Buckets().Create(ctx, testutils.GetB(), metav1.CreateOptions{})
 					_, _ = cosi.BucketAccessRequests(testutils.Namespace).Create(ctx, testutils.GetBAR(), metav1.CreateOptions{})
 					_, _ = cosi.BucketAccesses().Create(ctx, testutils.GetBA(), metav1.CreateOptions{})
+					_, _ = cs.CoreV1().Pods(testutils.Namespace).Create(ctx, testutils.GetPod(), metav1.CreateOptions{})
 				},
 				barName: "bucketAccessRequestName",
 				barNs:   testutils.Namespace,
@@ -506,11 +517,12 @@ func TestGetResources(t *testing.T) {
 			nc := &nodeClient{
 				kubeClient: k8sfake.NewSimpleClientset(),
 				cosiClient: cosifake.NewSimpleClientset().ObjectstorageV1alpha1(),
+				recorder:   record.NewFakeRecorder(10),
 			}
 
 			tc.prepare(nc.kubeClient, nc.cosiClient)
 
-			b, ba, secret, err := nc.GetResources(ctx, tc.barName, tc.barNs)
+			b, ba, secret, _, err := nc.GetResources(ctx, tc.barName, "podName", testutils.Namespace)
 
 			if diff := cmp.Diff(tc.want.b, b); diff != "" {
 				t.Errorf("r: -want, +got:\n%s", diff)

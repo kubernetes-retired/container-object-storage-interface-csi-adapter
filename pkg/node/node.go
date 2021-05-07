@@ -3,7 +3,6 @@ package node
 import (
 	"context"
 	"encoding/json"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
@@ -24,12 +23,13 @@ const (
 )
 
 func NewNodeServerOrDie(driverName, nodeID, dataRoot string, volumeLimit int64) csi.NodeServer {
+	cosiClient := client.NewClientOrDie(driverName, nodeID)
 	return &NodeServer{
 		name:        driverName,
 		nodeID:      nodeID,
-		cosiClient:  client.NewClientOrDie(),
-		provisioner: NewProvisioner(dataRoot, mount.New(""), client.NewProvisionerClient()),
 		volumeLimit: volumeLimit,
+		cosiClient:  cosiClient,
+		provisioner: NewProvisioner(dataRoot, mount.New(""), client.NewProvisionerClient()),
 	}
 }
 
@@ -39,9 +39,9 @@ type NodeServer struct {
 	csi.UnimplementedNodeServer
 	name        string
 	nodeID      string
+	volumeLimit int64
 	cosiClient  client.NodeClient
 	provisioner Provisioner
-	volumeLimit int64
 }
 
 func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
@@ -52,9 +52,9 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	bkt, ba, secret, err := n.cosiClient.GetResources(ctx, barName, podNs)
+	bkt, ba, secret, pod, err := n.cosiClient.GetResources(ctx, barName, podName, podNs)
 	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 
 	protocolConnection, err := client.GetProtocol(bkt)
@@ -89,6 +89,8 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return cleanup(err, util.WrapErrorFailedToWriteCredentials)
 	}
 
+	util.EmitNormalEvent(n.cosiClient.Recorder(), pod, util.CredentialsWritten)
+
 	err = n.provisioner.mountDir(request.GetVolumeId(), request.GetTargetPath())
 	if err != nil {
 		return cleanup(err, util.WrapErrorFailedToMountVolume)
@@ -115,6 +117,8 @@ func (n *NodeServer) NodePublishVolume(ctx context.Context, request *csi.NodePub
 		return cleanup(err, util.WrapErrorFailedToWriteMetadata)
 	}
 
+	util.EmitNormalEvent(n.cosiClient.Recorder(), pod, util.SuccessfullyPublishedVolume)
+
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -134,7 +138,12 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 
 	klog.InfoS("read metadata file", "metadata", meta)
 
-	ba, err := n.cosiClient.GetBA(ctx, meta.BaName)
+	pod, err := n.cosiClient.GetPod(ctx, meta.PodName, meta.PodNamespace)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	ba, err := n.cosiClient.GetBA(ctx, pod, meta.BaName)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -153,6 +162,8 @@ func (n *NodeServer) NodeUnpublishVolume(ctx context.Context, request *csi.NodeU
 	if err != nil {
 		return nil, status.Error(codes.Internal, errors.Wrap(err, util.WrapErrorFailedToRemoveFinalizer).Error())
 	}
+
+	util.EmitNormalEvent(n.cosiClient.Recorder(), pod, util.SuccessfullyUnpublishedVolume)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }

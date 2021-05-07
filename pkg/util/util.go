@@ -30,6 +30,9 @@ func ParseValue(key string, volCtx map[string]string) (string, error) {
 
 // logErr should be called at the interface method scope, prior to returning errors to the gRPC client.
 func LogErr(e error) error {
+	if e == nil {
+		return nil
+	}
 	klog.Error(e)
 	return e
 }
