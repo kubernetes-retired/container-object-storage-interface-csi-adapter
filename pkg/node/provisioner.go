@@ -2,15 +2,15 @@ package node
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
+	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/util"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/mount"
+	"k8s.io/mount-utils"
+
+	"sigs.k8s.io/container-object-storage-interface-csi-adapter/pkg/client"
 )
 
 const (
@@ -20,18 +20,14 @@ const (
 type Provisioner struct {
 	dataPath string
 	mounter  mount.Interface
+	pclient  client.ProvisionerClient
 }
 
-type Metadata struct {
-	BaName       string `json:"baName"`
-	PodName      string `json:"podName"`
-	PodNamespace string `json:"podNamespace"`
-}
-
-func NewProvisioner(dataPath string) Provisioner {
+func NewProvisioner(dataPath string, p mount.Interface, pc client.ProvisionerClient) Provisioner {
 	return Provisioner{
 		dataPath: dataPath,
-		mounter:  mount.New(""),
+		mounter:  p,
+		pclient:  pc,
 	}
 }
 
@@ -44,15 +40,15 @@ func (p Provisioner) bucketPath(volID string) string {
 }
 
 func (p Provisioner) createDir(volID string) error {
-	if err := os.MkdirAll(p.bucketPath(volID), 0750); err != nil {
-		return fmt.Errorf("publish volume failed: %v", err)
+	if err := p.pclient.MkdirAll(p.bucketPath(volID), 0750); err != nil {
+		return errors.Wrap(err, util.WrapErrorMkdirFailed)
 	}
 	return nil
 }
 
 func (p Provisioner) removeDir(volID string) error {
-	if err := os.RemoveAll(p.volPath(volID)); err != nil {
-		return status.Errorf(codes.Internal, "Publish Volume Failed: %v", err)
+	if err := p.pclient.RemoveAll(p.volPath(volID)); err != nil && !os.IsNotExist(err) {
+		return err
 	}
 	return nil
 }
@@ -61,9 +57,10 @@ func (p Provisioner) mountDir(volID, targetPath string) error {
 	// Check if the target path is already mounted. Prevent remounting.
 	notMnt, err := mount.IsNotMountPoint(p.mounter, targetPath)
 	if err != nil {
+		klog.Error(err)
 		if os.IsNotExist(err) {
-			if err = os.MkdirAll(targetPath, 0750); err != nil {
-				return err
+			if err = p.pclient.MkdirAll(targetPath, 0750); err != nil {
+				return errors.Wrap(err, util.WrapErrorFailedToMkdirForMount)
 			}
 			notMnt = true
 		} else {
@@ -72,65 +69,48 @@ func (p Provisioner) mountDir(volID, targetPath string) error {
 	}
 
 	if !notMnt {
-		return nil
+		return fmt.Errorf(util.ErrorTemplateVolumeAlreadyMounted, targetPath)
 	}
 
 	if err := p.mounter.Mount(p.bucketPath(volID), targetPath, "", []string{"bind"}); err != nil {
-		var errList strings.Builder
-		errList.WriteString(err.Error())
-		if rmErr := os.RemoveAll(p.bucketPath(volID)); rmErr != nil && !os.IsNotExist(rmErr) {
-			errList.WriteString(fmt.Sprintf(" :%s", rmErr.Error()))
-		}
-		return fmt.Errorf("failed to mount device: %s at %s: %s", p.bucketPath(volID), targetPath, errList.String())
+		return errors.Wrap(err, fmt.Sprintf(util.ErrorTemplateMountFailed, p.bucketPath(volID), targetPath))
 	}
-
 	return nil
 }
 
 func (p Provisioner) writeFileToVolumeMount(data []byte, volID, fileName string) error {
-	err := writeFile(data, filepath.Join(p.bucketPath(volID), fileName))
+	err := p.pclient.WriteFile(data, filepath.Join(p.bucketPath(volID), fileName))
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.WrapErrorFailedToCreateBucketFile)
 	}
 	return nil
 }
 
 func (p Provisioner) writeFileToVolume(data []byte, volID, fileName string) error {
-	err := writeFile(data, filepath.Join(p.volPath(volID), fileName))
+	err := p.pclient.WriteFile(data, filepath.Join(p.volPath(volID), fileName))
 	if err != nil {
-		return err
+		return errors.Wrap(err, util.WrapErrorFailedToCreateVolumeFile)
 	}
 	return nil
 }
 
 func (p Provisioner) readFileFromVolume(volID, fileName string) ([]byte, error) {
-	return ioutil.ReadFile(filepath.Join(p.volPath(volID), fileName))
+	return p.pclient.ReadFile(filepath.Join(p.volPath(volID), fileName))
 }
 
 func (p Provisioner) removeMount(path string) error {
 	err := mount.CleanupMountPoint(path, p.mounter, true)
 	if err != nil && !os.IsNotExist(err) {
-		klog.Error(err, "failed to clean and unmount target path", "targetPath", path)
-		return status.Error(codes.Internal, err.Error())
+		klog.ErrorS(err, "failed to clean and unmount target path", "targetPath", path)
+		return errors.Wrap(err, util.WrapErrorFailedToUnmountVolume)
 	}
 	return nil
 }
 
-func writeFile(data []byte, filepath string) error {
-	klog.Infof("creating conn file: %s", filepath)
-
-	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, os.FileMode(0440))
-	if err != nil {
-		return logErr(fmt.Errorf("error creating file: %s: %v", filepath, err))
-	}
-
-	defer file.Close()
-	_, err = file.Write(data)
-	if err != nil {
-		return logErr(fmt.Errorf("unable to write to file: %v", err))
-	}
-
-	return nil
+type Metadata struct {
+	BaName       string `json:"baName"`
+	PodName      string `json:"podName"`
+	PodNamespace string `json:"podNamespace"`
 }
 
 func (m Metadata) finalizer() string {
