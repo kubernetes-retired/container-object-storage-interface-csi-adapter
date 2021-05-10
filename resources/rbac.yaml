@@ -17,7 +17,7 @@ rules:
   resources: ["events"]
   verbs: ["list", "watch", "create", "update", "patch"]
 - apiGroups: [""]
-  resources: ["secrets"]
+  resources: ["pods", "secrets"]
   verbs: ["get", "watch", "list"]
 - apiGroups: ["objectstorage.k8s.io"]
   resources: ["bucketaccesses"]
