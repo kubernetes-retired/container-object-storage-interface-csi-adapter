@@ -60,7 +60,7 @@ func init() {
 	driverCmd.PersistentFlags().StringVarP(&nodeID, "node-id", "n", nodeID, "identity of the node in which COSI CSI driver is running")
 	driverCmd.PersistentFlags().StringVarP(&listen, "listen", "l", listen, "address of the listening socket for the node server")
 	driverCmd.PersistentFlags().StringVarP(&protocol, "protocol", "p", protocol, "must be one of tcp, tcp4, tcp6, unix, unixpacket")
-	driverCmd.PersistentFlags().StringVarP(&dataRoot, "data-path", "d", protocol, "the path to the directory for storing secrets")
+	driverCmd.PersistentFlags().StringVarP(&dataRoot, "data-path", "d", dataRoot, "the path to the directory for storing secrets")
 	driverCmd.PersistentFlags().Int64VarP(&volumeLimit, "max-volumes", "m", volumeLimit, "the maximum amount of volumes which can be assigned to a node")
 
 	_ = driverCmd.PersistentFlags().MarkHidden("alsologtostderr")
